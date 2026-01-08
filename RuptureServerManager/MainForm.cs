@@ -125,7 +125,8 @@ namespace RuptureServerManager
             UpdateSettingsFromUi();
             try
             {
-                var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
+				JsonSerializerOptions options = new() { WriteIndented = true };
+				var json = JsonSerializer.Serialize(_settings, options: options);
                 File.WriteAllText(_settingsFilePath, json);
                 File.WriteAllText(Path.Combine(_serverPath, "RuptureServerManagerSettings.txt"), json);
                 AppendConsole("Settings saved.");
@@ -159,7 +160,8 @@ namespace RuptureServerManager
             if (!File.Exists(exePath))
             {
                 await DownloadSteamCMDAsync();
-            }
+                await Task.Delay(500); // Small delay to ensure file system stability
+			}
         }
 
 		/// <summary>
@@ -177,7 +179,7 @@ namespace RuptureServerManager
 
 				Directory.CreateDirectory(_steamCmdDir);
 
-				using HttpClient client = new HttpClient();
+				using HttpClient client = new();
 				using HttpResponseMessage response = await client.GetAsync(
 					zipUrl,
 					HttpCompletionOption.ResponseHeadersRead
@@ -185,7 +187,7 @@ namespace RuptureServerManager
 
 				response.EnsureSuccessStatusCode();
 
-				await using (FileStream fs = new FileStream(
+				await using (FileStream fs = new(
 					tempZipPath,
 					FileMode.Create,
 					FileAccess.Write,
@@ -218,7 +220,7 @@ namespace RuptureServerManager
 			if (!File.Exists(steamCmdExe))
 				throw new FileNotFoundException("steamcmd.exe not found after extraction.");
 
-			using Process process = new Process
+			using Process process = new()
 			{
 				StartInfo = new ProcessStartInfo
 				{
