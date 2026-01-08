@@ -14,6 +14,8 @@ namespace RuptureServerManager
 	/// <summary>
 	/// Main form for the dedicated server controller. Handles UI events,
 	/// persistence of settings, and launching/updating external processes.
+	/// Includes logic for enabling and disabling UI controls while long-running
+	/// operations are in progress.
 	/// </summary>
 	public partial class MainForm : Form
 	{
@@ -21,11 +23,14 @@ namespace RuptureServerManager
 		private Process? _serverProcess;
 		private string _appFolder = string.Empty;
 		private string _serverPath = string.Empty;
-		private string _settingsFileName = string.Empty;
-		private string _dssettingsFileName = string.Empty;
+		private string _settingsFilePath = string.Empty;
 		private string _steamCmdDir = string.Empty;
 		private readonly string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs");
 		private readonly string logFileName = "server.txt";
+
+		// Flag to indicate when an update operation is running. During update,
+		// buttons are disabled until completion and stop does not re-enable them.
+		private bool _isUpdating = false;
 
 		private const int CTRL_C_EVENT = 0;
 
@@ -69,26 +74,23 @@ namespace RuptureServerManager
 			// Base folder for application data located next to the executable
 			_appFolder = Path.Combine(Application.StartupPath, "config");
 			Directory.CreateDirectory(_appFolder);
+			_settingsFilePath = Path.Combine(_appFolder, "RuptureServerManagerSettings.txt");
 			_steamCmdDir = Path.Combine(Application.StartupPath, "steamcmd");
 			Directory.CreateDirectory(_steamCmdDir);
 			_serverPath = Path.Combine(Application.StartupPath, "serverfiles");
-
-			_settingsFileName = Path.Combine(_appFolder, "RuptureServerManagerSettings.txt");
-			_dssettingsFileName = Path.Combine(_serverPath, "DSSettings.txt");
 		}
 
 		/// <summary>
 		/// Loads settings from the JSON file if present. If the file cannot be parsed,
-		/// defaults are used. Port is stored separately and loaded from the UI to
-		/// accommodate the [JsonIgnore] attribute.
+		/// defaults are used.
 		/// </summary>
 		private void LoadSettingsFromFile()
 		{
-			if (File.Exists(_settingsFileName))
+			if (File.Exists(_settingsFilePath))
 			{
 				try
 				{
-					string json = File.ReadAllText(_settingsFileName);
+					string json = File.ReadAllText(_settingsFilePath);
 					var loaded = JsonSerializer.Deserialize<RuptureServerManagerSettings>(json);
 					if (loaded != null)
 					{
@@ -130,7 +132,7 @@ namespace RuptureServerManager
 				JsonSerializerOptions options = new() { WriteIndented = true };
 				// Serialize full settings for the config file (include port)
 				var configJson = JsonSerializer.Serialize(_settings, options: options);
-				File.WriteAllText(_settingsFileName, configJson);
+				File.WriteAllText(_settingsFilePath, configJson);
 
 				// Create an anonymous object excluding the port for the serverfiles version
 				var serverSettings = new
@@ -142,7 +144,7 @@ namespace RuptureServerManager
 					_settings.SaveGameName
 				};
 				var serverJson = JsonSerializer.Serialize(serverSettings, options: options);
-				File.WriteAllText(_dssettingsFileName, serverJson);
+				File.WriteAllText(Path.Combine(_serverPath, "RuptureServerManagerSettings.txt"), serverJson);
 
 				AppendConsole("Settings saved.");
 			}
@@ -163,6 +165,45 @@ namespace RuptureServerManager
 			_settings.StartNewGame = startNewGameCheckBox.Checked;
 			_settings.LoadSavedGame = loadSavedGameCheckBox.Checked;
 			_settings.SaveGameName = saveGameNameTextBox.Text.Trim();
+		}
+
+		/// <summary>
+		/// Disable controls when the server is starting so the user cannot
+		/// modify settings or start the server again. Only the stop button
+		/// remains enabled to allow for graceful shutdown.
+		/// </summary>
+		private void DisableButtonsOnStart()
+		{
+			saveSettingsButton.Enabled = false;
+			downloadSteamCmdButton.Enabled = false;
+			startButton.Enabled = false;
+			updateButton.Enabled = false;
+			stopButton.Enabled = true;
+		}
+
+		/// <summary>
+		/// Disable all primary controls. Used when performing long running
+		/// operations like updates where no interaction should occur.
+		/// </summary>
+		private void DisableAllButtons()
+		{
+			saveSettingsButton.Enabled = false;
+			downloadSteamCmdButton.Enabled = false;
+			startButton.Enabled = false;
+			updateButton.Enabled = false;
+			stopButton.Enabled = false;
+		}
+
+		/// <summary>
+		/// Enable all controls after a long running operation is completed.
+		/// </summary>
+		private void EnableAllButtons()
+		{
+			saveSettingsButton.Enabled = true;
+			downloadSteamCmdButton.Enabled = true;
+			startButton.Enabled = true;
+			updateButton.Enabled = true;
+			stopButton.Enabled = true;
 		}
 
 		/// <summary>
@@ -285,6 +326,9 @@ namespace RuptureServerManager
 				return;
 			}
 
+			// Disable buttons while starting; only stop stays enabled
+			DisableButtonsOnStart();
+
 			SaveSettingsToFile();
 			// Determine the path to the server executable. By default we assume
 			// there is a file named 'server.exe' alongside the application. Users
@@ -328,6 +372,8 @@ namespace RuptureServerManager
 			{
 				AppendConsole($"Failed to start server: {ex.Message}");
 				_serverProcess = null;
+				// Re-enable buttons if start fails
+				EnableAllButtons();
 			}
 		}
 
@@ -352,6 +398,12 @@ namespace RuptureServerManager
 			else
 			{
 				AppendConsole("Server is not running.");
+			}
+
+			// Re-enable controls when the server stops unless an update is in progress
+			if (!_isUpdating)
+			{
+				EnableAllButtons();
 			}
 		}
 
@@ -401,6 +453,12 @@ namespace RuptureServerManager
 			{
 				AppendConsole($"Error stopping server: {ex.Message}");
 			}
+
+			// Re-enable controls when the server stops unless an update is in progress
+			if (!_isUpdating)
+			{
+				EnableAllButtons();
+			}
 		}
 
 		/// <summary>
@@ -410,6 +468,10 @@ namespace RuptureServerManager
 		/// </summary>
 		private async Task UpdateServerAsync()
 		{
+			// Mark update in progress and disable all buttons
+			_isUpdating = true;
+			DisableAllButtons();
+
 			// Stop any running server before updating
 			StopServer();
 
@@ -417,6 +479,9 @@ namespace RuptureServerManager
 			if (!File.Exists(steamCmdExe))
 			{
 				AppendConsole("SteamCMD executable not found. Please download SteamCMD first.");
+				// Update done (but incomplete); re-enable controls
+				_isUpdating = false;
+				EnableAllButtons();
 				return;
 			}
 
@@ -445,6 +510,10 @@ namespace RuptureServerManager
 			proc.BeginErrorReadLine();
 			await proc.WaitForExitAsync();
 			AppendConsole("SteamCMD update completed.");
+
+			// Update done; re-enable buttons
+			_isUpdating = false;
+			EnableAllButtons();
 		}
 
 		/// <summary>
