@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace RuptureServerManager
+namespace RuptureServerManagerSettingsNS
 {
     /// <summary>
     /// Represents the dedicated server settings that can be configured through the UI.

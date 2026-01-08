@@ -1,4 +1,4 @@
-using RuptureServerManager;
+using RuptureServerManagerSettingsNS;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace DSApp
+namespace RuptureServerManager
 {
     /// <summary>
     /// Main form for the dedicated server controller. Handles UI events,

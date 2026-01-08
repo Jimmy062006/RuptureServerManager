@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace DSApp
+namespace RuptureServerManager
 {
     /// <summary>
     /// Entry point for the application. Sets up high DPI mode and launches the main form.

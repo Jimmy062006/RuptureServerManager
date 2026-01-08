@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace DSApp
+namespace RuptureServerManager
 {
     /// <summary>
     /// Partial class for MainForm that contains UI component definitions. All
