@@ -11,18 +11,18 @@ using System.Windows.Forms;
 
 namespace RuptureServerManager
 {
-    /// <summary>
-    /// Main form for the dedicated server controller. Handles UI events,
-    /// persistence of settings, and launching/updating external processes.
-    /// </summary>
-    public partial class MainForm : Form
-    {
-        private RuptureServerManagerSettings _settings = new();
-        private Process? _serverProcess;
-        private string _appFolder = string.Empty;
-        private string _serverPath = string.Empty;
-        private string _settingsFilePath = string.Empty;
-        private string _steamCmdDir = string.Empty;
+	/// <summary>
+	/// Main form for the dedicated server controller. Handles UI events,
+	/// persistence of settings, and launching/updating external processes.
+	/// </summary>
+	public partial class MainForm : Form
+	{
+		private RuptureServerManagerSettings _settings = new();
+		private Process? _serverProcess;
+		private string _appFolder = string.Empty;
+		private string _serverPath = string.Empty;
+		private string _settingsFilePath = string.Empty;
+		private string _steamCmdDir = string.Empty;
 		private readonly string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs");
 		private readonly string logFileName = "server.txt";
 
@@ -40,129 +40,141 @@ namespace RuptureServerManager
 		[DllImport("kernel32.dll")]
 		private static extern bool SetConsoleCtrlHandler(IntPtr handler, bool add);
 
-
 		/// <summary>
 		/// Constructor. Initializes UI components defined in the designer file.
 		/// </summary>
 		public MainForm()
-        {
-            InitializeComponent();
-        }
-
-        /// <summary>
-        /// Loads persisted settings and ensures SteamCMD is available when the form loads.
-        /// </summary>
-        private async void MainForm_Load(object? sender, EventArgs e)
-        {
-            InitializePaths();
-            LoadSettingsFromFile();
-            ApplySettingsToUi();
-            await CheckAndDownloadSteamCMDAsync();
-        }
-
-        /// <summary>
-        /// Initializes the paths used by the application for storage and SteamCMD.
-        /// Creates directories if they do not exist.
-        /// </summary>
-        private void InitializePaths()
-        {
-            // Base folder for application data located next to the executable
-            _appFolder = Path.Combine(Application.StartupPath, "config");
-            Directory.CreateDirectory(_appFolder);
-            _settingsFilePath = Path.Combine(_appFolder, "RuptureServerManagerSettings.txt");
-            _steamCmdDir = Path.Combine(Application.StartupPath, "steamcmd");
-            Directory.CreateDirectory(_steamCmdDir);
-            _serverPath = Path.Combine(Application.StartupPath, "serverfiles");
+		{
+			InitializeComponent();
 		}
 
-        /// <summary>
-        /// Loads settings from the JSON file if present. If the file cannot be parsed,
-        /// defaults are used. Port is stored separately and loaded from the UI to
-        /// accommodate the [JsonIgnore] attribute.
-        /// </summary>
-        private void LoadSettingsFromFile()
-        {
-            if (File.Exists(_settingsFilePath))
-            {
-                try
-                {
-                    string json = File.ReadAllText(_settingsFilePath);
-                    var loaded = JsonSerializer.Deserialize<RuptureServerManagerSettings>(json);
-                    if (loaded != null)
-                    {
-                        _settings = loaded;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppendConsole($"Error loading settings: {ex.Message}");
-                    // Use defaults if loading fails
-                    _settings = new RuptureServerManagerSettings();
-                }
-            }
-        }
+		/// <summary>
+		/// Loads persisted settings and ensures SteamCMD is available when the form loads.
+		/// </summary>
+		private async void MainForm_Load(object? sender, EventArgs e)
+		{
+			InitializePaths();
+			LoadSettingsFromFile();
+			ApplySettingsToUi();
+			await CheckAndDownloadSteamCMDAsync();
+		}
 
-        /// <summary>
-        /// Updates the UI fields to reflect the currently loaded settings.
-        /// </summary>
-        private void ApplySettingsToUi()
-        {
-            // Ensure values are within allowed ranges
-            portNumericUpDown.Value = Math.Clamp(_settings.Port, (int)portNumericUpDown.Minimum, (int)portNumericUpDown.Maximum);
-            sessionNameTextBox.Text = _settings.SessionName;
-            saveGameIntervalNumericUpDown.Value = Math.Clamp(_settings.SaveGameInterval, (int)saveGameIntervalNumericUpDown.Minimum, (int)saveGameIntervalNumericUpDown.Maximum);
-            startNewGameCheckBox.Checked = _settings.StartNewGame;
-            loadSavedGameCheckBox.Checked = _settings.LoadSavedGame;
-            saveGameNameTextBox.Text = _settings.SaveGameName;
-        }
+		/// <summary>
+		/// Initializes the paths used by the application for storage and SteamCMD.
+		/// Creates directories if they do not exist.
+		/// </summary>
+		private void InitializePaths()
+		{
+			// Base folder for application data located next to the executable
+			_appFolder = Path.Combine(Application.StartupPath, "config");
+			Directory.CreateDirectory(_appFolder);
+			_settingsFilePath = Path.Combine(_appFolder, "RuptureServerManagerSettings.txt");
+			_steamCmdDir = Path.Combine(Application.StartupPath, "steamcmd");
+			Directory.CreateDirectory(_steamCmdDir);
+			_serverPath = Path.Combine(Application.StartupPath, "serverfiles");
+		}
 
-        /// <summary>
-        /// Writes the current settings object to disk as JSON. The port value is
-        /// updated from the UI before saving.
-        /// </summary>
-        private void SaveSettingsToFile()
-        {
-            UpdateSettingsFromUi();
-            try
-            {
-				JsonSerializerOptions options = new() { WriteIndented = true };
-				var json = JsonSerializer.Serialize(_settings, options: options);
-                File.WriteAllText(_settingsFilePath, json);
-                File.WriteAllText(Path.Combine(_serverPath, "RuptureServerManagerSettings.txt"), json);
-                AppendConsole("Settings saved.");
-            }
-            catch (Exception ex)
-            {
-                AppendConsole($"Error saving settings: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Updates the internal settings object with values from UI controls.
-        /// </summary>
-        private void UpdateSettingsFromUi()
-        {
-            _settings.Port = (int)portNumericUpDown.Value;
-            _settings.SessionName = sessionNameTextBox.Text.Trim();
-            _settings.SaveGameInterval = (int)saveGameIntervalNumericUpDown.Value;
-            _settings.StartNewGame = startNewGameCheckBox.Checked;
-            _settings.LoadSavedGame = loadSavedGameCheckBox.Checked;
-            _settings.SaveGameName = saveGameNameTextBox.Text.Trim();
-        }
-
-        /// <summary>
-        /// Ensures that SteamCMD exists on disk. If the executable is not found,
-        /// downloads and extracts the latest version from the official CDN.
-        /// </summary>
-        private async Task CheckAndDownloadSteamCMDAsync()
-        {
-            string exePath = Path.Combine(_steamCmdDir, "steamcmd.exe");
-            if (!File.Exists(exePath))
-            {
-                await DownloadSteamCMDAsync();
-                await Task.Delay(500); // Small delay to ensure file system stability
+		/// <summary>
+		/// Loads settings from the JSON file if present. If the file cannot be parsed,
+		/// defaults are used. Port is stored separately and loaded from the UI to
+		/// accommodate the [JsonIgnore] attribute.
+		/// </summary>
+		private void LoadSettingsFromFile()
+		{
+			if (File.Exists(_settingsFilePath))
+			{
+				try
+				{
+					string json = File.ReadAllText(_settingsFilePath);
+					var loaded = JsonSerializer.Deserialize<RuptureServerManagerSettings>(json);
+					if (loaded != null)
+					{
+						_settings = loaded;
+					}
+				}
+				catch (Exception ex)
+				{
+					AppendConsole($"Error loading settings: {ex.Message}");
+					// Use defaults if loading fails
+					_settings = new RuptureServerManagerSettings();
+				}
 			}
-        }
+		}
+
+		/// <summary>
+		/// Updates the UI fields to reflect the currently loaded settings.
+		/// </summary>
+		private void ApplySettingsToUi()
+		{
+			// Ensure values are within allowed ranges
+			portNumericUpDown.Value = Math.Clamp(_settings.Port, (int)portNumericUpDown.Minimum, (int)portNumericUpDown.Maximum);
+			sessionNameTextBox.Text = _settings.SessionName;
+			saveGameIntervalNumericUpDown.Value = Math.Clamp(_settings.SaveGameInterval, (int)saveGameIntervalNumericUpDown.Minimum, (int)saveGameIntervalNumericUpDown.Maximum);
+			startNewGameCheckBox.Checked = _settings.StartNewGame;
+			loadSavedGameCheckBox.Checked = _settings.LoadSavedGame;
+			saveGameNameTextBox.Text = _settings.SaveGameName;
+		}
+
+		/// <summary>
+		/// Writes the current settings object to disk as JSON. The port value is
+		/// updated from the UI before saving.
+		/// </summary>
+		private void SaveSettingsToFile()
+		{
+			UpdateSettingsFromUi();
+			try
+			{
+				JsonSerializerOptions options = new() { WriteIndented = true };
+				// Serialize full settings for the config file (include port)
+				var configJson = JsonSerializer.Serialize(_settings, options: options);
+				File.WriteAllText(_settingsFilePath, configJson);
+
+				// Create an anonymous object excluding the port for the serverfiles version
+				var serverSettings = new
+				{
+					_settings.SessionName,
+					_settings.SaveGameInterval,
+					_settings.StartNewGame,
+					_settings.LoadSavedGame,
+					_settings.SaveGameName
+				};
+				var serverJson = JsonSerializer.Serialize(serverSettings, options: options);
+				File.WriteAllText(Path.Combine(_serverPath, "RuptureServerManagerSettings.txt"), serverJson);
+
+				AppendConsole("Settings saved.");
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"Error saving settings: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Updates the internal settings object with values from UI controls.
+		/// </summary>
+		private void UpdateSettingsFromUi()
+		{
+			_settings.Port = (int)portNumericUpDown.Value;
+			_settings.SessionName = sessionNameTextBox.Text.Trim();
+			_settings.SaveGameInterval = (int)saveGameIntervalNumericUpDown.Value;
+			_settings.StartNewGame = startNewGameCheckBox.Checked;
+			_settings.LoadSavedGame = loadSavedGameCheckBox.Checked;
+			_settings.SaveGameName = saveGameNameTextBox.Text.Trim();
+		}
+
+		/// <summary>
+		/// Ensures that SteamCMD exists on disk. If the executable is not found,
+		/// downloads and extracts the latest version from the official CDN.
+		/// </summary>
+		private async Task CheckAndDownloadSteamCMDAsync()
+		{
+			string exePath = Path.Combine(_steamCmdDir, "steamcmd.exe");
+			if (!File.Exists(exePath))
+			{
+				await DownloadSteamCMDAsync();
+				await Task.Delay(500); // Small delay to ensure file system stability
+			}
+		}
 
 		/// <summary>
 		/// Downloads SteamCMD, extracts it, then runs it once to self-update.
@@ -263,82 +275,82 @@ namespace RuptureServerManager
 		/// that output can be streamed to the consoleTextBox.
 		/// </summary>
 		private void StartServer()
-        {
-            if (_serverProcess != null && !_serverProcess.HasExited)
-            {
-                AppendConsole("Server is already running.");
-                return;
-            }
+		{
+			if (_serverProcess != null && !_serverProcess.HasExited)
+			{
+				AppendConsole("Server is already running.");
+				return;
+			}
 
-            SaveSettingsToFile();
-            // Determine the path to the server executable. By default we assume
-            // there is a file named 'server.exe' alongside the application. Users
-            // may replace this with the actual executable for their server.
-            string serverExe = Path.Combine(_serverPath, "StarRuptureServerEOS.exe");
-            if (!File.Exists(serverExe))
-            {
-                AppendConsole("Server executable not found. Please place your server binary as 'server.exe' next to the application.");
-                return;
-            }
+			SaveSettingsToFile();
+			// Determine the path to the server executable. By default we assume
+			// there is a file named 'server.exe' alongside the application. Users
+			// may replace this with the actual executable for their server.
+			string serverExe = Path.Combine(_serverPath, "StarRuptureServerEOS.exe");
+			if (!File.Exists(serverExe))
+			{
+				AppendConsole("Server executable not found. Please place your server binary as 'server.exe' next to the application.");
+				return;
+			}
 
-            // Compose command line arguments. These arguments are examples and
-            // should be adapted to the actual server's command line options.
-            string args = $"-port={_settings.Port}";
+			// Compose command line arguments. These arguments are examples and
+			// should be adapted to the actual server's command line options.
+			string args = $"-port={_settings.Port}";
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = serverExe,
-                Arguments = args,
-                WorkingDirectory = Application.StartupPath,
-                UseShellExecute = false,
+			var psi = new ProcessStartInfo
+			{
+				FileName = serverExe,
+				Arguments = args,
+				WorkingDirectory = Application.StartupPath,
+				UseShellExecute = false,
 				RedirectStandardInput = true,
 				RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+				RedirectStandardError = true,
+				CreateNoWindow = true
+			};
 
-            try
-            {
-                _serverProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
-                _serverProcess.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-                _serverProcess.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-                _serverProcess.Exited += (s, e) => { AppendConsole("Server process exited."); };
+			try
+			{
+				_serverProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
+				_serverProcess.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
+				_serverProcess.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
+				_serverProcess.Exited += (s, e) => { AppendConsole("Server process exited."); };
 
-                _serverProcess.Start();
-                _serverProcess.BeginOutputReadLine();
-                _serverProcess.BeginErrorReadLine();
-                AppendConsole("Server started.");
-            }
-            catch (Exception ex)
-            {
-                AppendConsole($"Failed to start server: {ex.Message}");
-                _serverProcess = null;
-            }
-        }
+				_serverProcess.Start();
+				_serverProcess.BeginOutputReadLine();
+				_serverProcess.BeginErrorReadLine();
+				AppendConsole("Server started.");
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"Failed to start server: {ex.Message}");
+				_serverProcess = null;
+			}
+		}
 
-        /// <summary>
-        /// Stops the server process if it is currently running.
-        /// </summary>
-        private void StopServer()
-        {
-            if (_serverProcess != null && !_serverProcess.HasExited)
-            {
-                try
-                {
-                    _serverProcess.Kill();
-                    _serverProcess.WaitForExit();
-                    AppendConsole("Server stopped.");
-                }
-                catch (Exception ex)
-                {
-                    AppendConsole($"Error stopping server: {ex.Message}");
-                }
-            }
-            else
-            {
-                AppendConsole("Server is not running.");
-            }
-        }
+		/// <summary>
+		/// Stops the server process if it is currently running.
+		/// </summary>
+		private void StopServer()
+		{
+			if (_serverProcess != null && !_serverProcess.HasExited)
+			{
+				try
+				{
+					_serverProcess.Kill();
+					_serverProcess.WaitForExit();
+					AppendConsole("Server stopped.");
+				}
+				catch (Exception ex)
+				{
+					AppendConsole($"Error stopping server: {ex.Message}");
+				}
+			}
+			else
+			{
+				AppendConsole("Server is not running.");
+			}
+		}
 
 		/// <summary>
 		/// Gracefully stops the Unreal / Satisfactory server using STDIN.
@@ -394,60 +406,58 @@ namespace RuptureServerManager
 		/// and should be tailored to the specific application and app ID.
 		/// </summary>
 		private async Task UpdateServerAsync()
-        {
-            // Stop any running server before updating
-            StopServer();
+		{
+			// Stop any running server before updating
+			StopServer();
 
-            string steamCmdExe = Path.Combine(_steamCmdDir, "steamcmd.exe");
-            if (!File.Exists(steamCmdExe))
-            {
-                AppendConsole("SteamCMD executable not found. Please download SteamCMD first.");
-                return;
-            }
+			string steamCmdExe = Path.Combine(_steamCmdDir, "steamcmd.exe");
+			if (!File.Exists(steamCmdExe))
+			{
+				AppendConsole("SteamCMD executable not found. Please download SteamCMD first.");
+				return;
+			}
 
-            // Example SteamCMD command: login anonymously and quit. Replace with
-            // actual commands to update your server (e.g., app_update <id> validate).
-            string arguments = $"+force_install_dir {_serverPath} +login anonymous +app_update 3809400 validate +quit";
+			// Example SteamCMD command: login anonymously and quit. Replace with
+			// actual commands to update your server (e.g., app_update <id> validate).
+			string arguments = $"+force_install_dir {_serverPath} +login anonymous +app_update 3809400 validate +quit";
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = steamCmdExe,
-                Arguments = arguments,
-                WorkingDirectory = _steamCmdDir,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+			var psi = new ProcessStartInfo
+			{
+				FileName = steamCmdExe,
+				Arguments = arguments,
+				WorkingDirectory = _steamCmdDir,
+				UseShellExecute = false,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				CreateNoWindow = true
+			};
 
-            AppendConsole("Starting SteamCMD update...");
+			AppendConsole("Starting SteamCMD update...");
 
-            using var proc = new Process { StartInfo = psi };
-            proc.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-            proc.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-            proc.Start();
-            proc.BeginOutputReadLine();
-            proc.BeginErrorReadLine();
-            await proc.WaitForExitAsync();
-            AppendConsole("SteamCMD update completed.");
-        }
+			using var proc = new Process { StartInfo = psi };
+			proc.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
+			proc.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
+			proc.Start();
+			proc.BeginOutputReadLine();
+			proc.BeginErrorReadLine();
+			await proc.WaitForExitAsync();
+			AppendConsole("SteamCMD update completed.");
+		}
 
-
-
-        /// <summary>
-        /// Appends a message to the consoleTextBox with a timestamp. Ensures that
-        /// cross-thread calls are marshaled onto the UI thread when invoked from
-        /// background operations.
-        /// </summary>
-        /// <param name="message">Message to append.</param>
-        private void AppendConsole(string message)
-        {
-            if (consoleTextBox.InvokeRequired)
-            {
-                consoleTextBox.Invoke(new Action<string>(AppendConsole), message);
-                return;
-            }
-            consoleTextBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+		/// <summary>
+		/// Appends a message to the consoleTextBox with a timestamp. Ensures that
+		/// cross-thread calls are marshaled onto the UI thread when invoked from
+		/// background operations.
+		/// </summary>
+		/// <param name="message">Message to append.</param>
+		private void AppendConsole(string message)
+		{
+			if (consoleTextBox.InvokeRequired)
+			{
+				consoleTextBox.Invoke(new Action<string>(AppendConsole), message);
+				return;
+			}
+			consoleTextBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
 
 			// Auto-scroll to bottom
 			consoleTextBox.SelectionStart = consoleTextBox.TextLength;
@@ -460,51 +470,50 @@ namespace RuptureServerManager
 
 		private void LogToFile(string message)
 		{
-            try
-            {
-                if (!Directory.Exists(logFilePath))
-                {
-                    Directory.CreateDirectory(logFilePath);
-                }
+			try
+			{
+				if (!Directory.Exists(logFilePath))
+				{
+					Directory.CreateDirectory(logFilePath);
+				}
 
-                var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
-                File.AppendAllText(Path.Combine(logFilePath, logFileName), line + Environment.NewLine);
-            }
-            catch
-            {
-                // Intentionally swallow logging errors
-                // (we never want logging to crash the app)
-            }
+				var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
+				File.AppendAllText(Path.Combine(logFilePath, logFileName), line + Environment.NewLine);
+			}
+			catch
+			{
+				// Intentionally swallow logging errors
+				// (we never want logging to crash the app)
+			}
 		}
 
 		#region Event Handlers
 
 		private void SaveSettingsButton_Click(object? sender, EventArgs e)
-        {
-            SaveSettingsToFile();
-        }
+		{
+			SaveSettingsToFile();
+		}
 
-        private async void DownloadSteamCmdButton_Click(object? sender, EventArgs e)
-        {
-            await DownloadSteamCMDAsync();
-        }
+		private async void DownloadSteamCmdButton_Click(object? sender, EventArgs e)
+		{
+			await DownloadSteamCMDAsync();
+		}
 
-        private void StartButton_Click(object? sender, EventArgs e)
-        {
-            StartServer();
-        }
+		private void StartButton_Click(object? sender, EventArgs e)
+		{
+			StartServer();
+		}
 
-        private async void StopButton_Click(object? sender, EventArgs e)
-        {
-            //StopServer();
-            await StopServerAsync();
-        }
+		private async void StopButton_Click(object? sender, EventArgs e)
+		{
+			await StopServerAsync();
+		}
 
-        private async void UpdateButton_Click(object? sender, EventArgs e)
-        {
-            await UpdateServerAsync();
-        }
+		private async void UpdateButton_Click(object? sender, EventArgs e)
+		{
+			await UpdateServerAsync();
+		}
 
-        #endregion
-    }
+		#endregion
+	}
 }
