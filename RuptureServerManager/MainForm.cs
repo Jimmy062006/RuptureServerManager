@@ -21,7 +21,8 @@ namespace RuptureServerManager
 		private Process? _serverProcess;
 		private string _appFolder = string.Empty;
 		private string _serverPath = string.Empty;
-		private string _settingsFilePath = string.Empty;
+		private string _settingsFileName = string.Empty;
+		private string _dssettingsFileName = string.Empty;
 		private string _steamCmdDir = string.Empty;
 		private readonly string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs");
 		private readonly string logFileName = "server.txt";
@@ -68,10 +69,12 @@ namespace RuptureServerManager
 			// Base folder for application data located next to the executable
 			_appFolder = Path.Combine(Application.StartupPath, "config");
 			Directory.CreateDirectory(_appFolder);
-			_settingsFilePath = Path.Combine(_appFolder, "RuptureServerManagerSettings.txt");
 			_steamCmdDir = Path.Combine(Application.StartupPath, "steamcmd");
 			Directory.CreateDirectory(_steamCmdDir);
 			_serverPath = Path.Combine(Application.StartupPath, "serverfiles");
+
+			_settingsFileName = Path.Combine(_appFolder, "RuptureServerManagerSettings.txt");
+			_dssettingsFileName = Path.Combine(_serverPath, "DSSettings.txt");
 		}
 
 		/// <summary>
@@ -81,11 +84,11 @@ namespace RuptureServerManager
 		/// </summary>
 		private void LoadSettingsFromFile()
 		{
-			if (File.Exists(_settingsFilePath))
+			if (File.Exists(_settingsFileName))
 			{
 				try
 				{
-					string json = File.ReadAllText(_settingsFilePath);
+					string json = File.ReadAllText(_settingsFileName);
 					var loaded = JsonSerializer.Deserialize<RuptureServerManagerSettings>(json);
 					if (loaded != null)
 					{
@@ -127,7 +130,7 @@ namespace RuptureServerManager
 				JsonSerializerOptions options = new() { WriteIndented = true };
 				// Serialize full settings for the config file (include port)
 				var configJson = JsonSerializer.Serialize(_settings, options: options);
-				File.WriteAllText(_settingsFilePath, configJson);
+				File.WriteAllText(_settingsFileName, configJson);
 
 				// Create an anonymous object excluding the port for the serverfiles version
 				var serverSettings = new
@@ -139,7 +142,7 @@ namespace RuptureServerManager
 					_settings.SaveGameName
 				};
 				var serverJson = JsonSerializer.Serialize(serverSettings, options: options);
-				File.WriteAllText(Path.Combine(_serverPath, "RuptureServerManagerSettings.txt"), serverJson);
+				File.WriteAllText(_dssettingsFileName, serverJson);
 
 				AppendConsole("Settings saved.");
 			}
