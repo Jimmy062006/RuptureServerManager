@@ -47,7 +47,7 @@ RuptureServerManager/
 │  └─ RuptureServerManagerSettings.txt
 │
 ├─ serverfiles/
-│  ├─ RuptureServerManagerSettings.txt
+│  ├─ DSSettings.txt
 │  └─ steamapps/
 │     └─ appmanifest_<AppID>.acf
 │
