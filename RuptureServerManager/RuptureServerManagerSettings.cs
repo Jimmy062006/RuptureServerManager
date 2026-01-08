@@ -39,5 +39,13 @@ namespace RuptureServerManagerSettingsNS
 		/// when generating the version stored in the serverfiles directory.
 		/// </summary>
 		public int Port { get; set; } = 7777;
+
+		/// <summary>
+		/// 
+		public int UpdateEnabled { get; set; } = 1;
+
+		/// <summary>
+		/// 
+		public int UpdateInterval { get; set; } = 30;
 	}
 }

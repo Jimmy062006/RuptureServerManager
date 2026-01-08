@@ -1,4 +1,4 @@
-using RuptureServerManagerSettingsNS;
+﻿using RuptureServerManagerSettingsNS;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -6,16 +6,19 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Timer = System.Threading.Timer;
 
 namespace RuptureServerManager
 {
 	/// <summary>
 	/// Main form for the dedicated server controller. Handles UI events,
-	/// persistence of settings, and launching/updating external processes.
-	/// Includes logic for enabling and disabling UI controls while long-running
-	/// operations are in progress.
+	/// persistence of settings, launching/updating external processes, and now
+	/// supports an auto-update timer that monitors the configured Steam app ID
+	/// for updates. When an update is detected (or on schedule), the server
+	/// will be stopped, updated via SteamCMD, and then restarted.
 	/// </summary>
 	public partial class MainForm : Form
 	{
@@ -25,12 +28,22 @@ namespace RuptureServerManager
 		private string _serverPath = string.Empty;
 		private string _settingsFilePath = string.Empty;
 		private string _steamCmdDir = string.Empty;
+		private readonly int _steamAppId = 3809400;
 		private readonly string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs");
 		private readonly string logFileName = "server.txt";
+		private readonly string ServerSettingsFileName = "DSSettings.txt";
 
 		// Flag to indicate when an update operation is running. During update,
 		// buttons are disabled until completion and stop does not re-enable them.
 		private bool _isUpdating = false;
+
+		// Timer used for automatic update checks. When triggered, it will
+		// stop the server, run an update via SteamCMD, and optionally restart
+		// the server if it was running prior to the update.
+		private Timer? _autoUpdateTimer;
+
+		// Interval for auto-update checks. Adjust as needed.
+		private readonly TimeSpan _autoUpdateInterval = TimeSpan.FromMinutes(30);
 
 		private const int CTRL_C_EVENT = 0;
 
@@ -38,7 +51,7 @@ namespace RuptureServerManager
 		private static extern bool GenerateConsoleCtrlEvent(int dwCtrlEvent, int dwProcessGroupId);
 
 		[DllImport("kernel32.dll", SetLastError = true)]
-		private static extern bool AttachConsole(int dwProcessId);
+		private static extern bool AttachConsole(int dwCtrlEvent);
 
 		[DllImport("kernel32.dll", SetLastError = true)]
 		private static extern bool FreeConsole();
@@ -56,6 +69,7 @@ namespace RuptureServerManager
 
 		/// <summary>
 		/// Loads persisted settings and ensures SteamCMD is available when the form loads.
+		/// Initializes the auto-update timer.
 		/// </summary>
 		private async void MainForm_Load(object? sender, EventArgs e)
 		{
@@ -63,6 +77,8 @@ namespace RuptureServerManager
 			LoadSettingsFromFile();
 			ApplySettingsToUi();
 			await CheckAndDownloadSteamCMDAsync();
+			// Start periodic update checks
+			StartAutoUpdateTimer();
 		}
 
 		/// <summary>
@@ -118,6 +134,8 @@ namespace RuptureServerManager
 			startNewGameCheckBox.Checked = _settings.StartNewGame;
 			loadSavedGameCheckBox.Checked = _settings.LoadSavedGame;
 			saveGameNameTextBox.Text = _settings.SaveGameName;
+			checkBox1.Checked = _settings.UpdateEnabled == 1;
+			updateIntervalTextBox.Text = _settings.UpdateInterval.ToString();
 		}
 
 		/// <summary>
@@ -141,10 +159,10 @@ namespace RuptureServerManager
 					_settings.SaveGameInterval,
 					_settings.StartNewGame,
 					_settings.LoadSavedGame,
-					_settings.SaveGameName
+					_settings.SaveGameName,
 				};
 				var serverJson = JsonSerializer.Serialize(serverSettings, options: options);
-				File.WriteAllText(Path.Combine(_serverPath, "RuptureServerManagerSettings.txt"), serverJson);
+				File.WriteAllText(Path.Combine(_serverPath, ServerSettingsFileName), serverJson);
 
 				AppendConsole("Settings saved.");
 			}
@@ -165,6 +183,8 @@ namespace RuptureServerManager
 			_settings.StartNewGame = startNewGameCheckBox.Checked;
 			_settings.LoadSavedGame = loadSavedGameCheckBox.Checked;
 			_settings.SaveGameName = saveGameNameTextBox.Text.Trim();
+			_settings.UpdateInterval = int.TryParse(updateIntervalTextBox.Text.Trim(), out int interval) ? interval : 30;
+			_settings.UpdateEnabled = checkBox1.Checked ? 1 : 0;
 		}
 
 		/// <summary>
@@ -517,6 +537,194 @@ namespace RuptureServerManager
 		}
 
 		/// <summary>
+		/// Starts the auto-update timer. The timer runs asynchronously at the
+		/// configured interval, checking for updates and restarting the server if needed.
+		/// </summary>
+		private void StartAutoUpdateTimer()
+		{
+			// Dispose any existing timer to avoid multiple instances
+			_autoUpdateTimer?.Dispose();
+			_autoUpdateTimer = new Timer(async _ => await AutoUpdateAsync(), null, _autoUpdateInterval, _autoUpdateInterval);
+			AppendConsole($"Auto-update timer started. Interval: {_autoUpdateInterval.TotalMinutes} minutes.");
+		}
+
+		/// <summary>
+		/// Called by the auto-update timer. Performs an update via SteamCMD and
+		/// restarts the server if it was running prior to the update.
+		/// </summary>
+		private async Task AutoUpdateAsync()
+		{
+
+			if (checkBox1.Checked == false)
+			{
+				AppendConsole("Auto-update Disabled.");
+				return;
+			}
+
+			// Prevent overlap
+			if (_isUpdating)
+				return;
+
+			_isUpdating = true;
+
+			try
+			{
+				bool serverWasRunning =
+					_serverProcess != null && !_serverProcess.HasExited;
+
+				await InvokeOnUiAsync(() =>
+				{
+					AppendConsole("Auto-update check triggered.");
+					DisableAllButtons();
+				});
+
+				// 👉 here is where you check IF an update exists
+				bool updateAvailable = await IsUpdateAvailableAsync();
+
+				if (!updateAvailable)
+				{
+					await InvokeOnUiAsync(() =>
+						AppendConsole("No update available.")
+					);
+					return;
+				}
+
+				await InvokeOnUiAsync(() =>
+					AppendConsole("Update available – applying...")
+				);
+
+				if (serverWasRunning)
+					await StopServerAsync();
+
+				await UpdateServerAsync();
+
+				if (serverWasRunning)
+					await InvokeOnUiAsync(StartServer);
+			}
+			finally
+			{
+				_isUpdating = false;
+
+				await InvokeOnUiAsync(() =>
+					EnableAllButtons()
+				);
+			}
+		}
+
+		private async Task<bool> IsUpdateAvailableAsync()
+		{
+			try
+			{
+				int localBuild = GetLocalBuildId();
+				int remoteBuild = await GetRemoteBuildIdAsync();
+
+				if (localBuild == 0 || remoteBuild == 0)
+				{
+					AppendConsole("Unable to determine build IDs – skipping update.");
+					return false;
+				}
+
+				AppendConsole($"Local build: {localBuild}, Remote build: {remoteBuild}");
+
+				return remoteBuild > localBuild;
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"Update check failed: {ex.Message}");
+				return false;
+			}
+		}
+
+		private int GetLocalBuildId()
+		{
+			try
+			{
+				string manifestPath = Path.Combine(
+					_serverPath,
+					"steamapps",
+					$"appmanifest_{_steamAppId}.acf");
+
+				if (!File.Exists(manifestPath))
+					return 0;
+
+				foreach (string line in File.ReadLines(manifestPath))
+				{
+					if (line.Trim().StartsWith("\"buildid\""))
+					{
+						string value = line.Split('"', StringSplitOptions.RemoveEmptyEntries)[3];
+						return int.TryParse(value, out int build) ? build : 0;
+					}
+				}
+			}
+			catch { }
+
+			return 0;
+		}
+
+		private async Task<int> GetRemoteBuildIdAsync()
+		{
+			string steamCmdExe = Path.Combine(_steamCmdDir, "steamcmd.exe");
+			if (!File.Exists(steamCmdExe))
+				return 0;
+
+			var psi = new ProcessStartInfo
+			{
+				FileName = steamCmdExe,
+				Arguments = $"+login anonymous +app_info_update 1 +app_info_print {_steamAppId} +quit",
+				WorkingDirectory = _steamCmdDir,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				UseShellExecute = false,
+				CreateNoWindow = true
+			};
+
+			using var proc = Process.Start(psi);
+			if (proc == null)
+				return 0;
+
+			string output = await proc.StandardOutput.ReadToEndAsync();
+			await proc.WaitForExitAsync();
+
+			foreach (string line in output.Split('\n'))
+			{
+				if (line.Contains("\"buildid\""))
+				{
+					string value = line.Split('"', StringSplitOptions.RemoveEmptyEntries)[3];
+					return int.TryParse(value, out int build) ? build : 0;
+				}
+			}
+
+			return 0;
+		}
+
+		/// <summary>
+		/// Executes an action on the UI thread asynchronously.
+		/// Safe to call from timers, background threads, and async tasks.
+		/// </summary>
+		private Task InvokeOnUiAsync(Action action)
+		{
+			if (IsDisposed || !IsHandleCreated)
+				return Task.CompletedTask;
+
+			var tcs = new TaskCompletionSource();
+
+			BeginInvoke(new Action(() =>
+			{
+				try
+				{
+					action();
+					tcs.SetResult();
+				}
+				catch (Exception ex)
+				{
+					tcs.SetException(ex);
+				}
+			}));
+
+			return tcs.Task;
+		}
+
+		/// <summary>
 		/// Appends a message to the consoleTextBox with a timestamp. Ensures that
 		/// cross-thread calls are marshaled onto the UI thread when invoked from
 		/// background operations.
@@ -587,5 +795,16 @@ namespace RuptureServerManager
 		}
 
 		#endregion
+
+		private void UpdateInterval_KeyPress(object sender, KeyPressEventArgs e)
+		{
+			// Allow control keys (Backspace, Delete, Ctrl+C/V, etc.)
+			if (char.IsControl(e.KeyChar))
+				return;
+
+			// Allow digits only
+			if (!char.IsDigit(e.KeyChar))
+				e.Handled = true;
+		}
 	}
 }

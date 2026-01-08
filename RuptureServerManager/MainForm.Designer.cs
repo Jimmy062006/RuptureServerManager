@@ -72,8 +72,13 @@ namespace RuptureServerManager
 			sessionLabel = new Label();
 			saveIntervalLabel = new Label();
 			saveGameNameLabel = new Label();
+			checkinterval = new Label();
+			checkBox1 = new CheckBox();
+			groupBox1 = new GroupBox();
+			updateIntervalTextBox = new TextBox();
 			((ISupportInitialize)portNumericUpDown).BeginInit();
 			((ISupportInitialize)saveGameIntervalNumericUpDown).BeginInit();
+			groupBox1.SuspendLayout();
 			SuspendLayout();
 			// 
 			// portNumericUpDown
@@ -130,6 +135,7 @@ namespace RuptureServerManager
 			// 
 			saveGameNameTextBox.Location = new Point(120, 126);
 			saveGameNameTextBox.Name = "saveGameNameTextBox";
+			saveGameNameTextBox.ReadOnly = true;
 			saveGameNameTextBox.Size = new Size(200, 23);
 			saveGameNameTextBox.TabIndex = 9;
 			// 
@@ -155,7 +161,7 @@ namespace RuptureServerManager
 			// 
 			// startButton
 			// 
-			startButton.Location = new Point(340, 76);
+			startButton.Location = new Point(340, 105);
 			startButton.Name = "startButton";
 			startButton.Size = new Size(100, 25);
 			startButton.TabIndex = 12;
@@ -165,7 +171,7 @@ namespace RuptureServerManager
 			// 
 			// stopButton
 			// 
-			stopButton.Location = new Point(340, 108);
+			stopButton.Location = new Point(340, 137);
 			stopButton.Name = "stopButton";
 			stopButton.Size = new Size(100, 25);
 			stopButton.TabIndex = 13;
@@ -175,7 +181,7 @@ namespace RuptureServerManager
 			// 
 			// updateButton
 			// 
-			updateButton.Location = new Point(340, 140);
+			updateButton.Location = new Point(340, 74);
 			updateButton.Name = "updateButton";
 			updateButton.Size = new Size(100, 25);
 			updateButton.TabIndex = 14;
@@ -185,7 +191,7 @@ namespace RuptureServerManager
 			// 
 			// consoleTextBox
 			// 
-			consoleTextBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+			consoleTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 			consoleTextBox.Location = new Point(12, 180);
 			consoleTextBox.Name = "consoleTextBox";
 			consoleTextBox.ReadOnly = true;
@@ -230,11 +236,52 @@ namespace RuptureServerManager
 			saveGameNameLabel.TabIndex = 8;
 			saveGameNameLabel.Text = "Save Game Name:";
 			// 
+			// checkinterval
+			// 
+			checkinterval.AutoSize = true;
+			checkinterval.Location = new Point(20, 50);
+			checkinterval.Name = "checkinterval";
+			checkinterval.Size = new Size(119, 15);
+			checkinterval.TabIndex = 17;
+			checkinterval.Text = "Check Interval (Mins)";
+			// 
+			// checkBox1
+			// 
+			checkBox1.AutoSize = true;
+			checkBox1.CheckAlign = ContentAlignment.MiddleRight;
+			checkBox1.Location = new Point(20, 25);
+			checkBox1.Name = "checkBox1";
+			checkBox1.Size = new Size(93, 19);
+			checkBox1.TabIndex = 18;
+			checkBox1.Text = "Auto Update";
+			checkBox1.UseVisualStyleBackColor = true;
+			// 
+			// groupBox1
+			// 
+			groupBox1.Controls.Add(updateIntervalTextBox);
+			groupBox1.Controls.Add(checkBox1);
+			groupBox1.Controls.Add(checkinterval);
+			groupBox1.Location = new Point(446, 15);
+			groupBox1.Name = "groupBox1";
+			groupBox1.Size = new Size(200, 100);
+			groupBox1.TabIndex = 19;
+			groupBox1.TabStop = false;
+			groupBox1.Text = "Update Settings";
+			// 
+			// updateIntervalTextBox
+			// 
+			updateIntervalTextBox.Location = new Point(145, 47);
+			updateIntervalTextBox.Name = "updateIntervalTextBox";
+			updateIntervalTextBox.Size = new Size(44, 23);
+			updateIntervalTextBox.TabIndex = 19;
+			updateIntervalTextBox.KeyPress += UpdateInterval_KeyPress;
+			// 
 			// MainForm
 			// 
 			AutoScaleDimensions = new SizeF(7F, 15F);
 			AutoScaleMode = AutoScaleMode.Font;
 			ClientSize = new Size(784, 561);
+			Controls.Add(groupBox1);
 			Controls.Add(consoleTextBox);
 			Controls.Add(updateButton);
 			Controls.Add(stopButton);
@@ -257,10 +304,18 @@ namespace RuptureServerManager
 			Load += MainForm_Load;
 			((ISupportInitialize)portNumericUpDown).EndInit();
 			((ISupportInitialize)saveGameIntervalNumericUpDown).EndInit();
+			groupBox1.ResumeLayout(false);
+			groupBox1.PerformLayout();
 			ResumeLayout(false);
 			PerformLayout();
 		}
 
 		#endregion
+
+		private Label label1;
+		private Label checkinterval;
+		private CheckBox checkBox1;
+		private GroupBox groupBox1;
+		private TextBox updateIntervalTextBox;
 	}
 }
