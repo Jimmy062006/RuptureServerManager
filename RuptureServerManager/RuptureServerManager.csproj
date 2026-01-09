@@ -7,4 +7,12 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="AutoSaveEmpty\AutoSave0.met" />
+    <None Remove="AutoSaveEmpty\AutoSave0.sav" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="AutoSaveEmpty\AutoSave0.met" />
+    <EmbeddedResource Include="AutoSaveEmpty\AutoSave0.sav" />
+  </ItemGroup>
 </Project>

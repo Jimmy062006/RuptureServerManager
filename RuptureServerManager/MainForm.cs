@@ -1,9 +1,11 @@
-﻿using RuptureServerManagerSettingsNS;
+﻿using Microsoft.VisualBasic;
+using RuptureServerManagerSettingsNS;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
@@ -28,6 +30,7 @@ namespace RuptureServerManager
 		private string _serverPath = string.Empty;
 		private string _settingsFilePath = string.Empty;
 		private string _steamCmdDir = string.Empty;
+		private ServerUiState _uiState = ServerUiState.Idle;
 		private readonly int _steamAppId = 3809400;
 		private readonly string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs");
 		private readonly string logFileName = "server.txt";
@@ -44,20 +47,6 @@ namespace RuptureServerManager
 
 		// Interval for auto-update checks. Adjust as needed.
 		private readonly TimeSpan _autoUpdateInterval = TimeSpan.FromMinutes(30);
-
-		private const int CTRL_C_EVENT = 0;
-
-		[DllImport("kernel32.dll", SetLastError = true)]
-		private static extern bool GenerateConsoleCtrlEvent(int dwCtrlEvent, int dwProcessGroupId);
-
-		[DllImport("kernel32.dll", SetLastError = true)]
-		private static extern bool AttachConsole(int dwCtrlEvent);
-
-		[DllImport("kernel32.dll", SetLastError = true)]
-		private static extern bool FreeConsole();
-
-		[DllImport("kernel32.dll")]
-		private static extern bool SetConsoleCtrlHandler(IntPtr handler, bool add);
 
 		/// <summary>
 		/// Constructor. Initializes UI components defined in the designer file.
@@ -201,30 +190,90 @@ namespace RuptureServerManager
 			stopButton.Enabled = true;
 		}
 
-		/// <summary>
-		/// Disable all primary controls. Used when performing long running
-		/// operations like updates where no interaction should occur.
-		/// </summary>
-		private void DisableAllButtons()
+		private enum ServerUiState
 		{
-			saveSettingsButton.Enabled = false;
-			downloadSteamCmdButton.Enabled = false;
-			startButton.Enabled = false;
-			updateButton.Enabled = false;
-			stopButton.Enabled = false;
+			Idle,
+			ServerRunning,
+			Busy
+		}
+
+		private void UpdateButtonStates()
+		{
+			if (InvokeRequired)
+			{
+				Invoke(UpdateButtonStates);
+				return;
+			}
+
+			switch (_uiState)
+			{
+				case ServerUiState.Idle:
+					saveSettingsButton.Enabled = true;
+					downloadSteamCmdButton.Enabled = true;
+					startButton.Enabled = true;
+					updateButton.Enabled = true;
+					stopButton.Enabled = false;
+					break;
+
+				case ServerUiState.ServerRunning:
+					saveSettingsButton.Enabled = true;
+					downloadSteamCmdButton.Enabled = false;
+					startButton.Enabled = false;
+					updateButton.Enabled = true;
+					stopButton.Enabled = true;
+					break;
+
+				case ServerUiState.Busy:
+					saveSettingsButton.Enabled = false;
+					downloadSteamCmdButton.Enabled = false;
+					startButton.Enabled = false;
+					updateButton.Enabled = false;
+
+					// IMPORTANT: Stop remains enabled if server is running
+					stopButton.Enabled = _serverProcess != null && !_serverProcess.HasExited;
+					break;
+			}
+		}
+
+
+		private void SetButtonsEnabled(bool enabled)
+		{
+			if (InvokeRequired)
+			{
+				Invoke(new Action<bool>(SetButtonsEnabled), enabled);
+				return;
+			}
+
+			saveSettingsButton.Enabled = enabled;
+			downloadSteamCmdButton.Enabled = enabled;
+			startButton.Enabled = enabled;
+			updateButton.Enabled = enabled;
+			stopButton.Enabled = enabled;
 		}
 
 		/// <summary>
-		/// Enable all controls after a long running operation is completed.
+		/// Sets whether the application is performing a long-running operation.
+		/// Stop remains available if the server is running.
+		/// Thread-safe.
 		/// </summary>
-		private void EnableAllButtons()
+		private void SetBusyState(bool busy)
 		{
-			saveSettingsButton.Enabled = true;
-			downloadSteamCmdButton.Enabled = true;
-			startButton.Enabled = true;
-			updateButton.Enabled = true;
-			stopButton.Enabled = true;
+			if (InvokeRequired)
+			{
+				Invoke(new Action<bool>(SetBusyState), busy);
+				return;
+			}
+
+			_uiState = busy
+				? ServerUiState.Busy
+				: (_serverProcess != null && !_serverProcess.HasExited
+					? ServerUiState.ServerRunning
+					: ServerUiState.Idle);
+
+			Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
+			UpdateButtonStates();
 		}
+
 
 		/// <summary>
 		/// Ensures that SteamCMD exists on disk. If the executable is not found,
@@ -275,6 +324,14 @@ namespace RuptureServerManager
 				AppendConsole("Download complete. Extracting SteamCMD...");
 				ZipFile.ExtractToDirectory(tempZipPath, _steamCmdDir, overwriteFiles: true);
 				File.Delete(tempZipPath);
+
+				AppendConsole("SteamCMD extracted. Running first-time update...");
+
+				await RunSteamCmdSelfUpdateAsync(steamCmdExe);
+
+				AppendConsole("SteamCMD extracted. Running first-time update...");
+
+				await RunSteamCmdSelfUpdateAsync(steamCmdExe);
 
 				AppendConsole("SteamCMD extracted. Running first-time update...");
 
@@ -346,22 +403,28 @@ namespace RuptureServerManager
 				return;
 			}
 
-			// Disable buttons while starting; only stop stays enabled
 			DisableButtonsOnStart();
-
 			SaveSettingsToFile();
-			// Determine the path to the server executable. By default we assume
-			// there is a file named 'server.exe' alongside the application. Users
-			// may replace this with the actual executable for their server.
-			string serverExe = Path.Combine(_serverPath, "StarRuptureServerEOS.exe");
-			if (!File.Exists(serverExe))
+
+			try
 			{
-				AppendConsole("Server executable not found. Please place your server binary as 'server.exe' next to the application.");
+				EnsureSaveGameExists();
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"SaveGame preparation failed: {ex.Message}");
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
 				return;
 			}
 
-			// Compose command line arguments. These arguments are examples and
-			// should be adapted to the actual server's command line options.
+			string serverExe = Path.Combine(_serverPath, "StarRuptureServerEOS.exe");
+			if (!File.Exists(serverExe))
+			{
+				AppendConsole("Server executable not found.");
+				return;
+			}
+
 			string args = $"-port={_settings.Port}";
 
 			var psi = new ProcessStartInfo
@@ -386,16 +449,18 @@ namespace RuptureServerManager
 				_serverProcess.Start();
 				_serverProcess.BeginOutputReadLine();
 				_serverProcess.BeginErrorReadLine();
+
 				AppendConsole("Server started.");
 			}
 			catch (Exception ex)
 			{
 				AppendConsole($"Failed to start server: {ex.Message}");
 				_serverProcess = null;
-				// Re-enable buttons if start fails
-				EnableAllButtons();
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
 			}
 		}
+
 
 		/// <summary>
 		/// Stops the server process if it is currently running.
@@ -423,7 +488,8 @@ namespace RuptureServerManager
 			// Re-enable controls when the server stops unless an update is in progress
 			if (!_isUpdating)
 			{
-				EnableAllButtons();
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
 			}
 		}
 
@@ -439,45 +505,43 @@ namespace RuptureServerManager
 				return;
 			}
 
-			AppendConsole("Stopping server (graceful shutdown)...");
+			AppendConsole("Requesting server shutdown...");
 
 			try
 			{
-				// Send Unreal's built-in quit command
-				if (_serverProcess.StartInfo.RedirectStandardInput)
+				// Only attempt STDIN if still available
+				if (_serverProcess.StartInfo.RedirectStandardInput &&
+					!_serverProcess.StandardInput.BaseStream.CanWrite)
+				{
+					AppendConsole("STDIN already closed; waiting for server to exit...");
+				}
+				else
 				{
 					await _serverProcess.StandardInput.WriteLineAsync("quit");
 					await _serverProcess.StandardInput.FlushAsync();
 				}
-				else
-				{
-					AppendConsole("Warning: STDIN is not redirected. Cannot send quit command.");
-				}
-
-				// Unreal servers can take time to save
-				bool exited = await Task.Run(() => _serverProcess.WaitForExit(30000));
-
-				if (exited)
-				{
-					AppendConsole("Server stopped cleanly.");
-				}
-				else
-				{
-					AppendConsole("Server did not exit in time. Forcing shutdown...");
-					_serverProcess.Kill(true);
-					await _serverProcess.WaitForExitAsync();
-					AppendConsole("Server forcefully stopped.");
-				}
 			}
 			catch (Exception ex)
 			{
-				AppendConsole($"Error stopping server: {ex.Message}");
+				// This is expected once Unreal begins shutdown
+				AppendConsole($"Shutdown command send failed (expected): {ex.Message}");
 			}
 
-			// Re-enable controls when the server stops unless an update is in progress
-			if (!_isUpdating)
+			AppendConsole("Waiting for server to stop (saving may take time)...");
+
+			// Unreal servers can take a LONG time to save
+			bool exited = await Task.Run(() => _serverProcess.WaitForExit(60000));
+
+			if (exited)
 			{
-				EnableAllButtons();
+				AppendConsole("Server exited cleanly.");
+			}
+			else
+			{
+				AppendConsole("Server did not exit in time. Forcing shutdown...");
+				_serverProcess.Kill(true);
+				await _serverProcess.WaitForExitAsync();
+				AppendConsole("Server forcefully stopped.");
 			}
 		}
 
@@ -490,7 +554,8 @@ namespace RuptureServerManager
 		{
 			// Mark update in progress and disable all buttons
 			_isUpdating = true;
-			DisableAllButtons();
+			_uiState = ServerUiState.Busy;
+			UpdateButtonStates();
 
 			// Stop any running server before updating
 			StopServer();
@@ -501,7 +566,8 @@ namespace RuptureServerManager
 				AppendConsole("SteamCMD executable not found. Please download SteamCMD first.");
 				// Update done (but incomplete); re-enable controls
 				_isUpdating = false;
-				EnableAllButtons();
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
 				return;
 			}
 
@@ -528,12 +594,15 @@ namespace RuptureServerManager
 			proc.Start();
 			proc.BeginOutputReadLine();
 			proc.BeginErrorReadLine();
+			await Task.Delay(500); // Small delay to ensure all output is processed
 			await proc.WaitForExitAsync();
+			await Task.Delay(500); // Small delay to ensure all output is processed
 			AppendConsole("SteamCMD update completed.");
 
 			// Update done; re-enable buttons
 			_isUpdating = false;
-			EnableAllButtons();
+			_uiState = ServerUiState.Idle;
+			UpdateButtonStates();
 		}
 
 		/// <summary>
@@ -554,6 +623,7 @@ namespace RuptureServerManager
 		/// </summary>
 		private async Task AutoUpdateAsync()
 		{
+			//SetBusyState(true);
 
 			if (checkBox1.Checked == false)
 			{
@@ -569,13 +639,13 @@ namespace RuptureServerManager
 
 			try
 			{
-				bool serverWasRunning =
-					_serverProcess != null && !_serverProcess.HasExited;
+				bool serverWasRunning =	_serverProcess != null && !_serverProcess.HasExited;
 
 				await InvokeOnUiAsync(() =>
 				{
 					AppendConsole("Auto-update check triggered.");
-					DisableAllButtons();
+					_uiState = ServerUiState.Busy;
+					UpdateButtonStates();
 				});
 
 				// 👉 here is where you check IF an update exists
@@ -604,12 +674,66 @@ namespace RuptureServerManager
 			finally
 			{
 				_isUpdating = false;
+				//SetBusyState(false);
 
-				await InvokeOnUiAsync(() =>
-					EnableAllButtons()
-				);
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
+			}
+			//SetBusyState(false);
+		}
+
+		private void EnsureSaveGameExists()
+		{
+			if (string.IsNullOrWhiteSpace(_settings.SessionName))
+				throw new InvalidOperationException("SessionName is not set.");
+
+			string saveGameDir = Path.Combine(
+				_serverPath,
+				"StarRupture",
+				"Saved",
+				"SaveGames",
+				_settings.SessionName
+			);
+
+			// Create directory if missing
+			Directory.CreateDirectory(saveGameDir);
+
+			string targetFile1 = Path.Combine(saveGameDir, "AutoSave0.met");
+			string targetFile2 = Path.Combine(saveGameDir, "AutoSave0.sav");
+
+			// Only copy if it does not already exist
+			if (!File.Exists(targetFile1))
+			{
+				var asm = Assembly.GetExecutingAssembly();
+
+				// ⚠️ Update namespace if your project name differs
+				const string resourceName = "RuptureServerManager.AutoSaveEmpty.AutoSave0.met";
+
+				using Stream? resourceStream = asm.GetManifestResourceStream(resourceName);
+				if (resourceStream == null)
+					throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
+
+				using FileStream fs = new FileStream(targetFile1, FileMode.Create, FileAccess.Write);
+				resourceStream.CopyTo(fs);
+			}
+
+			// Only copy if it does not already exist
+			if (!File.Exists(targetFile2))
+			{
+				var asm = Assembly.GetExecutingAssembly();
+
+				// ⚠️ Update namespace if your project name differs
+				const string resourceName = "RuptureServerManager.AutoSaveEmpty.AutoSave0.sav";
+
+				using Stream? resourceStream = asm.GetManifestResourceStream(resourceName);
+				if (resourceStream == null)
+					throw new FileNotFoundException($"Embedded resource not found: {resourceName}");
+
+				using FileStream fs = new FileStream(targetFile2, FileMode.Create, FileAccess.Write);
+				resourceStream.CopyTo(fs);
 			}
 		}
+
 
 		private async Task<bool> IsUpdateAvailableAsync()
 		{
@@ -805,6 +929,26 @@ namespace RuptureServerManager
 			// Allow digits only
 			if (!char.IsDigit(e.KeyChar))
 				e.Handled = true;
+		}
+
+		private async Task SendServerCommandAsync(string command)
+		{
+			if (_serverProcess == null || _serverProcess.HasExited)
+			{
+				AppendConsole("Server is not running.");
+				return;
+			}
+
+			try
+			{
+				AppendConsole($"> {command}");
+				await _serverProcess.StandardInput.WriteLineAsync(command);
+				await _serverProcess.StandardInput.FlushAsync();
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"Failed to send command: {ex.Message}");
+			}
 		}
 	}
 }
