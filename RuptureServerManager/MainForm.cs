@@ -123,7 +123,7 @@ namespace RuptureServerManager
 			startNewGameCheckBox.Checked = _settings.StartNewGame;
 			loadSavedGameCheckBox.Checked = _settings.LoadSavedGame;
 			saveGameNameTextBox.Text = _settings.SaveGameName;
-			checkBox1.Checked = _settings.UpdateEnabled == 1;
+			autoUpdateCheckBox.Checked = _settings.UpdateEnabled == 1;
 			updateIntervalTextBox.Text = _settings.UpdateInterval.ToString();
 		}
 
@@ -173,7 +173,9 @@ namespace RuptureServerManager
 			_settings.LoadSavedGame = loadSavedGameCheckBox.Checked;
 			_settings.SaveGameName = saveGameNameTextBox.Text.Trim();
 			_settings.UpdateInterval = int.TryParse(updateIntervalTextBox.Text.Trim(), out int interval) ? interval : 30;
-			_settings.UpdateEnabled = checkBox1.Checked ? 1 : 0;
+			_settings.UpdateEnabled = autoUpdateCheckBox.Checked ? 1 : 0;
+
+			StartAutoUpdateTimer();
 		}
 
 		/// <summary>
@@ -184,7 +186,7 @@ namespace RuptureServerManager
 		private void DisableButtonsOnStart()
 		{
 			saveSettingsButton.Enabled = false;
-			downloadSteamCmdButton.Enabled = false;
+			//downloadSteamCmdButton.Enabled = false;
 			startButton.Enabled = false;
 			updateButton.Enabled = false;
 			stopButton.Enabled = true;
@@ -209,7 +211,7 @@ namespace RuptureServerManager
 			{
 				case ServerUiState.Idle:
 					saveSettingsButton.Enabled = true;
-					downloadSteamCmdButton.Enabled = true;
+					//downloadSteamCmdButton.Enabled = true;
 					startButton.Enabled = true;
 					updateButton.Enabled = true;
 					stopButton.Enabled = false;
@@ -217,7 +219,7 @@ namespace RuptureServerManager
 
 				case ServerUiState.ServerRunning:
 					saveSettingsButton.Enabled = true;
-					downloadSteamCmdButton.Enabled = false;
+					//downloadSteamCmdButton.Enabled = false;
 					startButton.Enabled = false;
 					updateButton.Enabled = true;
 					stopButton.Enabled = true;
@@ -225,7 +227,7 @@ namespace RuptureServerManager
 
 				case ServerUiState.Busy:
 					saveSettingsButton.Enabled = false;
-					downloadSteamCmdButton.Enabled = false;
+					//downloadSteamCmdButton.Enabled = false;
 					startButton.Enabled = false;
 					updateButton.Enabled = false;
 
@@ -245,7 +247,7 @@ namespace RuptureServerManager
 			}
 
 			saveSettingsButton.Enabled = enabled;
-			downloadSteamCmdButton.Enabled = enabled;
+			//downloadSteamCmdButton.Enabled = enabled;
 			startButton.Enabled = enabled;
 			updateButton.Enabled = enabled;
 			stopButton.Enabled = enabled;
@@ -285,6 +287,7 @@ namespace RuptureServerManager
 			if (!File.Exists(exePath))
 			{
 				await DownloadSteamCMDAsync();
+				await UpdateServerAsync();
 				await Task.Delay(500); // Small delay to ensure file system stability
 			}
 		}
@@ -535,6 +538,8 @@ namespace RuptureServerManager
 			if (exited)
 			{
 				AppendConsole("Server exited cleanly.");
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
 			}
 			else
 			{
@@ -542,6 +547,8 @@ namespace RuptureServerManager
 				_serverProcess.Kill(true);
 				await _serverProcess.WaitForExitAsync();
 				AppendConsole("Server forcefully stopped.");
+				_uiState = ServerUiState.Idle;
+				UpdateButtonStates();
 			}
 		}
 
@@ -611,10 +618,11 @@ namespace RuptureServerManager
 		/// </summary>
 		private void StartAutoUpdateTimer()
 		{
+			var timespan = TimeSpan.FromMinutes(30);
 			// Dispose any existing timer to avoid multiple instances
 			_autoUpdateTimer?.Dispose();
-			_autoUpdateTimer = new Timer(async _ => await AutoUpdateAsync(), null, _autoUpdateInterval, _autoUpdateInterval);
-			AppendConsole($"Auto-update timer started. Interval: {_autoUpdateInterval.TotalMinutes} minutes.");
+			_autoUpdateTimer = new Timer(async _ => await AutoUpdateAsync(), null, timespan, timespan);
+			AppendConsole($"Auto-update timer started. Interval: {_settings.UpdateInterval} minutes.");
 		}
 
 		/// <summary>
@@ -625,7 +633,8 @@ namespace RuptureServerManager
 		{
 			//SetBusyState(true);
 
-			if (checkBox1.Checked == false)
+			// Use the renamed autoUpdateCheckBox instead of the default-named checkBox1
+			if (autoUpdateCheckBox.Checked == false)
 			{
 				AppendConsole("Auto-update Disabled.");
 				return;
@@ -639,7 +648,7 @@ namespace RuptureServerManager
 
 			try
 			{
-				bool serverWasRunning =	_serverProcess != null && !_serverProcess.HasExited;
+				bool serverWasRunning = _serverProcess != null && !_serverProcess.HasExited;
 
 				await InvokeOnUiAsync(() =>
 				{
@@ -948,6 +957,94 @@ namespace RuptureServerManager
 			catch (Exception ex)
 			{
 				AppendConsole($"Failed to send command: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Handles click events for both the admin and player password set buttons.
+		/// Invokes the asynchronous update routine to post the current password
+		/// values and write the encrypted results to disk.
+		/// </summary>
+		private async void SetPasswordButton_Click(object? sender, EventArgs e)
+		{
+			await OnSetPasswordsAsync();
+		}
+
+		/// <summary>
+		/// Reads the current values from the admin and player password text boxes and
+		/// sends them to the StarRupture password API.  Any exceptions are logged
+		/// to the console.  A message will be appended to the console on success.
+		/// </summary>
+		private async Task OnSetPasswordsAsync()
+		{
+			try
+			{
+				// Read masked password text from the UI controls. Null‑coalesce to empty strings.
+				string adminPassword = adminPasswordTextBox?.Text ?? string.Empty;
+				string playerPassword = playerPasswordTextBox?.Text ?? string.Empty;
+				await UpdatePasswordsAsync(adminPassword, playerPassword);
+				AppendConsole("Passwords updated successfully.");
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"Failed to update passwords: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Calls the password encryption API using HTTP POST form data and persists
+		/// the returned encrypted strings to files.  The administrator password
+		/// is stored in <c>Password.json</c> and the player password in
+		/// <c>ServerPassword.json</c> under the server path.
+		/// </summary>
+		/// <param name="adminPassword">Clear‑text administrator password entered by the user.</param>
+		/// <param name="playerPassword">Clear‑text player password entered by the user.</param>
+		private async Task UpdatePasswordsAsync(string adminPassword, string playerPassword)
+		{
+			using var httpClient = new HttpClient();
+			using var content = new MultipartFormDataContent();
+			// Always send both values, even if blank, to match the API contract.
+			content.Add(new StringContent(adminPassword ?? string.Empty), "adminpassword");
+			content.Add(new StringContent(playerPassword ?? string.Empty), "playerpassword");
+
+			// Post the form data to the API endpoint.  Throws on non‑success status codes.
+			using HttpResponseMessage response = await httpClient.PostAsync("https://starrupture.agngaming.com/passwords/", content);
+			response.EnsureSuccessStatusCode();
+			string json = await response.Content.ReadAsStringAsync();
+
+			// Parse the returned JSON and write each value to its respective file.
+			using JsonDocument document = JsonDocument.Parse(json);
+			if (document.RootElement.TryGetProperty("adminpassword", out JsonElement adminElement))
+			{
+				string encrypted = adminElement.GetString() ?? string.Empty;
+				WritePasswordFile("PlayerPassword.json", encrypted);
+			}
+			if (document.RootElement.TryGetProperty("playerpassword", out JsonElement playerElement))
+			{
+				string encrypted = playerElement.GetString() ?? string.Empty;
+				WritePasswordFile("Password.json", encrypted);
+			}
+		}
+
+		/// <summary>
+		/// Writes the supplied encrypted password value to a file in the server path.
+		/// The directories are created if they do not already exist.
+		/// </summary>
+		/// <param name="fileName">The filename (e.g. Password.json or ServerPassword.json)</param>
+		/// <param name="encryptedValue">The encrypted string returned by the API.</param>
+		private void WritePasswordFile(string fileName, string encryptedValue)
+		{
+			try
+			{
+				if (encryptedValue == string.Empty)
+					return;
+				Directory.CreateDirectory(_serverPath);
+				var fullPath = Path.Combine(_serverPath, fileName);
+				File.WriteAllText(fullPath, encryptedValue);
+			}
+			catch (Exception ex)
+			{
+				AppendConsole($"Failed to write password file {fileName}: {ex.Message}");
 			}
 		}
 	}

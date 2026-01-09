@@ -42,7 +42,7 @@ namespace RuptureServerManagerSettingsNS
 
 		/// <summary>
 		/// 
-		public int UpdateEnabled { get; set; } = 1;
+		public int UpdateEnabled { get; set; } = 0;
 
 		/// <summary>
 		/// 

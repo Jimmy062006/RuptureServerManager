@@ -5,47 +5,62 @@ using System.Windows.Forms;
 
 namespace RuptureServerManager
 {
-    /// <summary>
-    /// Partial class for MainForm that contains UI component definitions. All
-    /// modifications to the UI layout belong here so that designer tools or
-    /// manual changes can be kept separate from the logic in MainForm.cs.
-    /// </summary>
-    public partial class MainForm
-    {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private IContainer components = null;
+	/// <summary>
+	/// Partial class for MainForm that contains UI component definitions. All
+	/// modifications to the UI layout belong here so that designer tools or
+	/// manual changes can be kept separate from the logic in MainForm.cs.
+	/// </summary>
+	public partial class MainForm
+	{
+		/// <summary>
+		/// Required designer variable.
+		/// </summary>
+		private IContainer components = null;
 
-        private NumericUpDown portNumericUpDown;
-        private TextBox sessionNameTextBox;
-        private NumericUpDown saveGameIntervalNumericUpDown;
-        private CheckBox startNewGameCheckBox;
-        private CheckBox loadSavedGameCheckBox;
-        private TextBox saveGameNameTextBox;
-        private Button saveSettingsButton;
-        private Button downloadSteamCmdButton;
-        private Button startButton;
-        private Button stopButton;
-        private Button updateButton;
-        private RichTextBox consoleTextBox;
-        private Label portLabel;
-        private Label sessionLabel;
-        private Label saveIntervalLabel;
-        private Label saveGameNameLabel;
+		// UI control fields
+		private NumericUpDown portNumericUpDown;
+		private TextBox sessionNameTextBox;
+		private NumericUpDown saveGameIntervalNumericUpDown;
+		private CheckBox startNewGameCheckBox;
+		private CheckBox loadSavedGameCheckBox;
+		private TextBox saveGameNameTextBox;
+		private Button saveSettingsButton;
+		private Button startButton;
+		private Button stopButton;
+		private Button updateButton;
+		private RichTextBox consoleTextBox;
+		private Label portLabel;
+		private Label sessionLabel;
+		private Label saveIntervalLabel;
+		private Label saveGameNameLabel;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            base.Dispose(disposing);
-        }
+		// Renamed update controls
+		private Label updateIntervalLabel;
+		private CheckBox autoUpdateCheckBox;
+		private GroupBox updateSettingsGroupBox;
+		private TextBox updateIntervalTextBox;
+
+		// New password controls
+		private GroupBox passwordGroupBox;
+		private Label adminPasswordLabel;
+		private TextBox adminPasswordTextBox;
+		private Button setAdminPasswordButton;
+		private Label playerPasswordLabel;
+		private TextBox playerPasswordTextBox;
+		private Button setPlayerPasswordButton;
+
+		/// <summary>
+		/// Clean up any resources being used.
+		/// </summary>
+		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing && (components != null))
+			{
+				components.Dispose();
+			}
+			base.Dispose(disposing);
+		}
 
 		#region Windows Form Designer generated code
 
@@ -63,7 +78,6 @@ namespace RuptureServerManager
 			loadSavedGameCheckBox = new CheckBox();
 			saveGameNameTextBox = new TextBox();
 			saveSettingsButton = new Button();
-			downloadSteamCmdButton = new Button();
 			startButton = new Button();
 			stopButton = new Button();
 			updateButton = new Button();
@@ -72,13 +86,21 @@ namespace RuptureServerManager
 			sessionLabel = new Label();
 			saveIntervalLabel = new Label();
 			saveGameNameLabel = new Label();
-			checkinterval = new Label();
-			checkBox1 = new CheckBox();
-			groupBox1 = new GroupBox();
+			updateIntervalLabel = new Label();
+			autoUpdateCheckBox = new CheckBox();
+			updateSettingsGroupBox = new GroupBox();
 			updateIntervalTextBox = new TextBox();
+			passwordGroupBox = new GroupBox();
+			setPlayerPasswordButton = new Button();
+			playerPasswordTextBox = new TextBox();
+			playerPasswordLabel = new Label();
+			setAdminPasswordButton = new Button();
+			adminPasswordTextBox = new TextBox();
+			adminPasswordLabel = new Label();
 			((ISupportInitialize)portNumericUpDown).BeginInit();
 			((ISupportInitialize)saveGameIntervalNumericUpDown).BeginInit();
-			groupBox1.SuspendLayout();
+			updateSettingsGroupBox.SuspendLayout();
+			passwordGroupBox.SuspendLayout();
 			SuspendLayout();
 			// 
 			// portNumericUpDown
@@ -114,26 +136,28 @@ namespace RuptureServerManager
 			startNewGameCheckBox.AutoSize = true;
 			startNewGameCheckBox.Checked = true;
 			startNewGameCheckBox.CheckState = CheckState.Checked;
-			startNewGameCheckBox.Location = new Point(12, 100);
+			startNewGameCheckBox.Location = new Point(13, 137);
 			startNewGameCheckBox.Name = "startNewGameCheckBox";
 			startNewGameCheckBox.Size = new Size(111, 19);
 			startNewGameCheckBox.TabIndex = 6;
 			startNewGameCheckBox.Text = "Start New Game";
 			startNewGameCheckBox.UseVisualStyleBackColor = true;
+			startNewGameCheckBox.Visible = false;
 			// 
 			// loadSavedGameCheckBox
 			// 
 			loadSavedGameCheckBox.AutoSize = true;
-			loadSavedGameCheckBox.Location = new Point(150, 100);
+			loadSavedGameCheckBox.Location = new Point(151, 137);
 			loadSavedGameCheckBox.Name = "loadSavedGameCheckBox";
 			loadSavedGameCheckBox.Size = new Size(120, 19);
 			loadSavedGameCheckBox.TabIndex = 7;
 			loadSavedGameCheckBox.Text = "Load Saved Game";
 			loadSavedGameCheckBox.UseVisualStyleBackColor = true;
+			loadSavedGameCheckBox.Visible = false;
 			// 
 			// saveGameNameTextBox
 			// 
-			saveGameNameTextBox.Location = new Point(120, 126);
+			saveGameNameTextBox.Location = new Point(120, 102);
 			saveGameNameTextBox.Name = "saveGameNameTextBox";
 			saveGameNameTextBox.ReadOnly = true;
 			saveGameNameTextBox.Size = new Size(200, 23);
@@ -149,53 +173,43 @@ namespace RuptureServerManager
 			saveSettingsButton.UseVisualStyleBackColor = true;
 			saveSettingsButton.Click += SaveSettingsButton_Click;
 			// 
-			// downloadSteamCmdButton
-			// 
-			downloadSteamCmdButton.Location = new Point(340, 44);
-			downloadSteamCmdButton.Name = "downloadSteamCmdButton";
-			downloadSteamCmdButton.Size = new Size(100, 25);
-			downloadSteamCmdButton.TabIndex = 11;
-			downloadSteamCmdButton.Text = "Download SteamCMD";
-			downloadSteamCmdButton.UseVisualStyleBackColor = true;
-			downloadSteamCmdButton.Click += DownloadSteamCmdButton_Click;
-			// 
 			// startButton
 			// 
-			startButton.Location = new Point(340, 105);
+			startButton.Location = new Point(340, 75);
 			startButton.Name = "startButton";
 			startButton.Size = new Size(100, 25);
 			startButton.TabIndex = 12;
-			startButton.Text = "Start";
+			startButton.Text = "Start Server";
 			startButton.UseVisualStyleBackColor = true;
 			startButton.Click += StartButton_Click;
 			// 
 			// stopButton
 			// 
-			stopButton.Location = new Point(340, 137);
+			stopButton.Location = new Point(340, 107);
 			stopButton.Name = "stopButton";
 			stopButton.Size = new Size(100, 25);
 			stopButton.TabIndex = 13;
-			stopButton.Text = "Stop";
+			stopButton.Text = "Stop Server";
 			stopButton.UseVisualStyleBackColor = true;
 			stopButton.Click += StopButton_Click;
 			// 
 			// updateButton
 			// 
-			updateButton.Location = new Point(340, 74);
+			updateButton.Location = new Point(340, 44);
 			updateButton.Name = "updateButton";
 			updateButton.Size = new Size(100, 25);
 			updateButton.TabIndex = 14;
-			updateButton.Text = "Update";
+			updateButton.Text = "Update Server";
 			updateButton.UseVisualStyleBackColor = true;
 			updateButton.Click += UpdateButton_Click;
 			// 
 			// consoleTextBox
 			// 
 			consoleTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-			consoleTextBox.Location = new Point(12, 180);
+			consoleTextBox.Location = new Point(12, 201);
 			consoleTextBox.Name = "consoleTextBox";
 			consoleTextBox.ReadOnly = true;
-			consoleTextBox.Size = new Size(760, 370);
+			consoleTextBox.Size = new Size(838, 349);
 			consoleTextBox.TabIndex = 15;
 			consoleTextBox.Text = "";
 			consoleTextBox.WordWrap = false;
@@ -230,43 +244,43 @@ namespace RuptureServerManager
 			// saveGameNameLabel
 			// 
 			saveGameNameLabel.AutoSize = true;
-			saveGameNameLabel.Location = new Point(12, 129);
+			saveGameNameLabel.Location = new Point(12, 105);
 			saveGameNameLabel.Name = "saveGameNameLabel";
 			saveGameNameLabel.Size = new Size(103, 15);
 			saveGameNameLabel.TabIndex = 8;
 			saveGameNameLabel.Text = "Save Game Name:";
 			// 
-			// checkinterval
+			// updateIntervalLabel
 			// 
-			checkinterval.AutoSize = true;
-			checkinterval.Location = new Point(20, 50);
-			checkinterval.Name = "checkinterval";
-			checkinterval.Size = new Size(119, 15);
-			checkinterval.TabIndex = 17;
-			checkinterval.Text = "Check Interval (Mins)";
+			updateIntervalLabel.AutoSize = true;
+			updateIntervalLabel.Location = new Point(20, 50);
+			updateIntervalLabel.Name = "updateIntervalLabel";
+			updateIntervalLabel.Size = new Size(119, 15);
+			updateIntervalLabel.TabIndex = 17;
+			updateIntervalLabel.Text = "Check Interval (Mins)";
 			// 
-			// checkBox1
+			// autoUpdateCheckBox
 			// 
-			checkBox1.AutoSize = true;
-			checkBox1.CheckAlign = ContentAlignment.MiddleRight;
-			checkBox1.Location = new Point(20, 25);
-			checkBox1.Name = "checkBox1";
-			checkBox1.Size = new Size(93, 19);
-			checkBox1.TabIndex = 18;
-			checkBox1.Text = "Auto Update";
-			checkBox1.UseVisualStyleBackColor = true;
+			autoUpdateCheckBox.AutoSize = true;
+			autoUpdateCheckBox.CheckAlign = ContentAlignment.MiddleRight;
+			autoUpdateCheckBox.Location = new Point(20, 25);
+			autoUpdateCheckBox.Name = "autoUpdateCheckBox";
+			autoUpdateCheckBox.Size = new Size(93, 19);
+			autoUpdateCheckBox.TabIndex = 18;
+			autoUpdateCheckBox.Text = "Auto Update";
+			autoUpdateCheckBox.UseVisualStyleBackColor = true;
 			// 
-			// groupBox1
+			// updateSettingsGroupBox
 			// 
-			groupBox1.Controls.Add(updateIntervalTextBox);
-			groupBox1.Controls.Add(checkBox1);
-			groupBox1.Controls.Add(checkinterval);
-			groupBox1.Location = new Point(446, 15);
-			groupBox1.Name = "groupBox1";
-			groupBox1.Size = new Size(200, 100);
-			groupBox1.TabIndex = 19;
-			groupBox1.TabStop = false;
-			groupBox1.Text = "Update Settings";
+			updateSettingsGroupBox.Controls.Add(updateIntervalTextBox);
+			updateSettingsGroupBox.Controls.Add(autoUpdateCheckBox);
+			updateSettingsGroupBox.Controls.Add(updateIntervalLabel);
+			updateSettingsGroupBox.Location = new Point(446, 15);
+			updateSettingsGroupBox.Name = "updateSettingsGroupBox";
+			updateSettingsGroupBox.Size = new Size(200, 100);
+			updateSettingsGroupBox.TabIndex = 19;
+			updateSettingsGroupBox.TabStop = false;
+			updateSettingsGroupBox.Text = "Update Settings";
 			// 
 			// updateIntervalTextBox
 			// 
@@ -276,17 +290,86 @@ namespace RuptureServerManager
 			updateIntervalTextBox.TabIndex = 19;
 			updateIntervalTextBox.KeyPress += UpdateInterval_KeyPress;
 			// 
+			// passwordGroupBox
+			// 
+			passwordGroupBox.Controls.Add(setPlayerPasswordButton);
+			passwordGroupBox.Controls.Add(playerPasswordTextBox);
+			passwordGroupBox.Controls.Add(playerPasswordLabel);
+			passwordGroupBox.Controls.Add(setAdminPasswordButton);
+			passwordGroupBox.Controls.Add(adminPasswordTextBox);
+			passwordGroupBox.Controls.Add(adminPasswordLabel);
+			passwordGroupBox.Location = new Point(652, 15);
+			passwordGroupBox.Name = "passwordGroupBox";
+			passwordGroupBox.Size = new Size(200, 180);
+			passwordGroupBox.TabIndex = 20;
+			passwordGroupBox.TabStop = false;
+			passwordGroupBox.Text = "Passwords";
+			// 
+			// setPlayerPasswordButton
+			// 
+			setPlayerPasswordButton.Location = new Point(12, 152);
+			setPlayerPasswordButton.Name = "setPlayerPasswordButton";
+			setPlayerPasswordButton.Size = new Size(85, 23);
+			setPlayerPasswordButton.TabIndex = 5;
+			setPlayerPasswordButton.Text = "Set Player";
+			setPlayerPasswordButton.UseVisualStyleBackColor = true;
+			setPlayerPasswordButton.Click += SetPasswordButton_Click;
+			// 
+			// playerPasswordTextBox
+			// 
+			playerPasswordTextBox.Location = new Point(12, 126);
+			playerPasswordTextBox.Name = "playerPasswordTextBox";
+			playerPasswordTextBox.Size = new Size(176, 23);
+			playerPasswordTextBox.TabIndex = 4;
+			playerPasswordTextBox.UseSystemPasswordChar = true;
+			// 
+			// playerPasswordLabel
+			// 
+			playerPasswordLabel.AutoSize = true;
+			playerPasswordLabel.Location = new Point(12, 108);
+			playerPasswordLabel.Name = "playerPasswordLabel";
+			playerPasswordLabel.Size = new Size(92, 15);
+			playerPasswordLabel.TabIndex = 3;
+			playerPasswordLabel.Text = "Player Password";
+			// 
+			// setAdminPasswordButton
+			// 
+			setAdminPasswordButton.Location = new Point(12, 72);
+			setAdminPasswordButton.Name = "setAdminPasswordButton";
+			setAdminPasswordButton.Size = new Size(85, 23);
+			setAdminPasswordButton.TabIndex = 2;
+			setAdminPasswordButton.Text = "Set Admin";
+			setAdminPasswordButton.UseVisualStyleBackColor = true;
+			setAdminPasswordButton.Click += SetPasswordButton_Click;
+			// 
+			// adminPasswordTextBox
+			// 
+			adminPasswordTextBox.Location = new Point(12, 46);
+			adminPasswordTextBox.Name = "adminPasswordTextBox";
+			adminPasswordTextBox.Size = new Size(176, 23);
+			adminPasswordTextBox.TabIndex = 1;
+			adminPasswordTextBox.UseSystemPasswordChar = true;
+			// 
+			// adminPasswordLabel
+			// 
+			adminPasswordLabel.AutoSize = true;
+			adminPasswordLabel.Location = new Point(12, 28);
+			adminPasswordLabel.Name = "adminPasswordLabel";
+			adminPasswordLabel.Size = new Size(96, 15);
+			adminPasswordLabel.TabIndex = 0;
+			adminPasswordLabel.Text = "Admin Password";
+			// 
 			// MainForm
 			// 
 			AutoScaleDimensions = new SizeF(7F, 15F);
 			AutoScaleMode = AutoScaleMode.Font;
-			ClientSize = new Size(784, 561);
-			Controls.Add(groupBox1);
+			ClientSize = new Size(862, 561);
+			Controls.Add(updateSettingsGroupBox);
+			Controls.Add(passwordGroupBox);
 			Controls.Add(consoleTextBox);
 			Controls.Add(updateButton);
 			Controls.Add(stopButton);
 			Controls.Add(startButton);
-			Controls.Add(downloadSteamCmdButton);
 			Controls.Add(saveSettingsButton);
 			Controls.Add(saveGameNameTextBox);
 			Controls.Add(saveGameNameLabel);
@@ -304,18 +387,14 @@ namespace RuptureServerManager
 			Load += MainForm_Load;
 			((ISupportInitialize)portNumericUpDown).EndInit();
 			((ISupportInitialize)saveGameIntervalNumericUpDown).EndInit();
-			groupBox1.ResumeLayout(false);
-			groupBox1.PerformLayout();
+			updateSettingsGroupBox.ResumeLayout(false);
+			updateSettingsGroupBox.PerformLayout();
+			passwordGroupBox.ResumeLayout(false);
+			passwordGroupBox.PerformLayout();
 			ResumeLayout(false);
 			PerformLayout();
 		}
 
 		#endregion
-
-		private Label label1;
-		private Label checkinterval;
-		private CheckBox checkBox1;
-		private GroupBox groupBox1;
-		private TextBox updateIntervalTextBox;
 	}
 }
