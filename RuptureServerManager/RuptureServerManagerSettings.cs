@@ -21,12 +21,12 @@ namespace RuptureServerManagerSettingsNS
 		/// <summary>
 		/// Whether the server should start a new game. Default is true.
 		/// </summary>
-		public bool StartNewGame { get; set; } = true;
+		public bool StartNewGame { get; set; } = false;
 
 		/// <summary>
 		/// Whether the server should load a previously saved game. Default is false.
 		/// </summary>
-		public bool LoadSavedGame { get; set; } = false;
+		public bool LoadSavedGame { get; set; } = true;
 
 		/// <summary>
 		/// Name of the save file to use. Default is "AutoSave0.sav".
