@@ -134,8 +134,6 @@ namespace RuptureServerManager
 			// startNewGameCheckBox
 			// 
 			startNewGameCheckBox.AutoSize = true;
-			startNewGameCheckBox.Checked = true;
-			startNewGameCheckBox.CheckState = CheckState.Checked;
 			startNewGameCheckBox.Location = new Point(13, 137);
 			startNewGameCheckBox.Name = "startNewGameCheckBox";
 			startNewGameCheckBox.Size = new Size(111, 19);
@@ -147,6 +145,8 @@ namespace RuptureServerManager
 			// loadSavedGameCheckBox
 			// 
 			loadSavedGameCheckBox.AutoSize = true;
+			loadSavedGameCheckBox.Checked = true;
+			loadSavedGameCheckBox.CheckState = CheckState.Checked;
 			loadSavedGameCheckBox.Location = new Point(151, 137);
 			loadSavedGameCheckBox.Name = "loadSavedGameCheckBox";
 			loadSavedGameCheckBox.Size = new Size(120, 19);
