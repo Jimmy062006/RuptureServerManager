@@ -74,8 +74,6 @@ namespace RuptureServerManager
 			portNumericUpDown = new NumericUpDown();
 			sessionNameTextBox = new TextBox();
 			saveGameIntervalNumericUpDown = new NumericUpDown();
-			startNewGameCheckBox = new CheckBox();
-			loadSavedGameCheckBox = new CheckBox();
 			saveGameNameTextBox = new TextBox();
 			saveSettingsButton = new Button();
 			startButton = new Button();
@@ -130,30 +128,6 @@ namespace RuptureServerManager
 			saveGameIntervalNumericUpDown.Size = new Size(120, 23);
 			saveGameIntervalNumericUpDown.TabIndex = 5;
 			saveGameIntervalNumericUpDown.Value = new decimal(new int[] { 300, 0, 0, 0 });
-			// 
-			// startNewGameCheckBox
-			// 
-			startNewGameCheckBox.AutoSize = true;
-			startNewGameCheckBox.Location = new Point(13, 137);
-			startNewGameCheckBox.Name = "startNewGameCheckBox";
-			startNewGameCheckBox.Size = new Size(111, 19);
-			startNewGameCheckBox.TabIndex = 6;
-			startNewGameCheckBox.Text = "Start New Game";
-			startNewGameCheckBox.UseVisualStyleBackColor = true;
-			startNewGameCheckBox.Visible = false;
-			// 
-			// loadSavedGameCheckBox
-			// 
-			loadSavedGameCheckBox.AutoSize = true;
-			loadSavedGameCheckBox.Checked = true;
-			loadSavedGameCheckBox.CheckState = CheckState.Checked;
-			loadSavedGameCheckBox.Location = new Point(151, 137);
-			loadSavedGameCheckBox.Name = "loadSavedGameCheckBox";
-			loadSavedGameCheckBox.Size = new Size(120, 19);
-			loadSavedGameCheckBox.TabIndex = 7;
-			loadSavedGameCheckBox.Text = "Load Saved Game";
-			loadSavedGameCheckBox.UseVisualStyleBackColor = true;
-			loadSavedGameCheckBox.Visible = false;
 			// 
 			// saveGameNameTextBox
 			// 
@@ -373,8 +347,6 @@ namespace RuptureServerManager
 			Controls.Add(saveSettingsButton);
 			Controls.Add(saveGameNameTextBox);
 			Controls.Add(saveGameNameLabel);
-			Controls.Add(loadSavedGameCheckBox);
-			Controls.Add(startNewGameCheckBox);
 			Controls.Add(saveGameIntervalNumericUpDown);
 			Controls.Add(saveIntervalLabel);
 			Controls.Add(sessionNameTextBox);

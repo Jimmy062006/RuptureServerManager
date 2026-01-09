@@ -120,8 +120,8 @@ namespace RuptureServerManager
 			portNumericUpDown.Value = Math.Clamp(_settings.Port, (int)portNumericUpDown.Minimum, (int)portNumericUpDown.Maximum);
 			sessionNameTextBox.Text = _settings.SessionName;
 			saveGameIntervalNumericUpDown.Value = Math.Clamp(_settings.SaveGameInterval, (int)saveGameIntervalNumericUpDown.Minimum, (int)saveGameIntervalNumericUpDown.Maximum);
-			startNewGameCheckBox.Checked = _settings.StartNewGame;
-			loadSavedGameCheckBox.Checked = _settings.LoadSavedGame;
+			//startNewGameCheckBox.Checked = _settings.StartNewGame;
+			//loadSavedGameCheckBox.Checked = _settings.LoadSavedGame;
 			saveGameNameTextBox.Text = _settings.SaveGameName;
 			autoUpdateCheckBox.Checked = _settings.UpdateEnabled == 1;
 			updateIntervalTextBox.Text = _settings.UpdateInterval.ToString();
@@ -169,8 +169,8 @@ namespace RuptureServerManager
 			_settings.Port = (int)portNumericUpDown.Value;
 			_settings.SessionName = sessionNameTextBox.Text.Trim();
 			_settings.SaveGameInterval = (int)saveGameIntervalNumericUpDown.Value;
-			_settings.StartNewGame = startNewGameCheckBox.Checked;
-			_settings.LoadSavedGame = loadSavedGameCheckBox.Checked;
+			_settings.StartNewGame = false;
+			_settings.LoadSavedGame = true;
 			_settings.SaveGameName = saveGameNameTextBox.Text.Trim();
 			_settings.UpdateInterval = int.TryParse(updateIntervalTextBox.Text.Trim(), out int interval) ? interval : 30;
 			_settings.UpdateEnabled = autoUpdateCheckBox.Checked ? 1 : 0;
