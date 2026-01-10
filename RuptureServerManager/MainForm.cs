@@ -533,7 +533,7 @@ namespace RuptureServerManager
 			AppendConsole("Waiting for server to stop (saving may take time)...");
 
 			// Unreal servers can take a LONG time to save
-			bool exited = await Task.Run(() => _serverProcess.WaitForExit(60000));
+			bool exited = await Task.Run(() => _serverProcess.WaitForExit(10000));
 
 			if (exited)
 			{
@@ -1017,12 +1017,12 @@ namespace RuptureServerManager
 			if (document.RootElement.TryGetProperty("adminpassword", out JsonElement adminElement))
 			{
 				string encrypted = adminElement.GetString() ?? string.Empty;
-				WritePasswordFile("PlayerPassword.json", encrypted);
+				WritePasswordFile("PlayerPassword.json", $"{{\"password\":\"{encrypted}\"}}");
 			}
 			if (document.RootElement.TryGetProperty("playerpassword", out JsonElement playerElement))
 			{
 				string encrypted = playerElement.GetString() ?? string.Empty;
-				WritePasswordFile("Password.json", encrypted);
+				WritePasswordFile("Password.json", $"{{\"password\":\"{encrypted}\"}}");
 			}
 		}
 
