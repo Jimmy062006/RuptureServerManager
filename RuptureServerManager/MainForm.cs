@@ -428,7 +428,7 @@ namespace RuptureServerManager
 				return;
 			}
 
-			string args = $"-port={_settings.Port}";
+			string args = $"-port={_settings.Port} -newconsole -Log";
 
 			var psi = new ProcessStartInfo
 			{
@@ -1017,12 +1017,12 @@ namespace RuptureServerManager
 			if (document.RootElement.TryGetProperty("adminpassword", out JsonElement adminElement))
 			{
 				string encrypted = adminElement.GetString() ?? string.Empty;
-				WritePasswordFile("PlayerPassword.json", $"{{\"password\":\"{encrypted}\"}}");
+				WritePasswordFile("Password.json", $"{{\"password\":\"{encrypted}\"}}");
 			}
 			if (document.RootElement.TryGetProperty("playerpassword", out JsonElement playerElement))
 			{
 				string encrypted = playerElement.GetString() ?? string.Empty;
-				WritePasswordFile("Password.json", $"{{\"password\":\"{encrypted}\"}}");
+				WritePasswordFile("PlayerPassword.json", $"{{\"password\":\"{encrypted}\"}}");
 			}
 		}
 
