@@ -4,6 +4,8 @@ A Windows Forms–based dedicated server manager for **Star Rupture**, designed 
 
 This tool provides a clean UI for starting, stopping, updating, and automatically maintaining a dedicated server with minimal downtime.
 
+Built versions are here https://github.com/Jimmy062006/RuptureServerManager/releases
+
 ---
 
 ## ✨ Features
