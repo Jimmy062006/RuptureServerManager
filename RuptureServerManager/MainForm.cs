@@ -428,7 +428,7 @@ namespace RuptureServerManager
 				return;
 			}
 
-			string args = $"-port={_settings.Port} -Log -LogCmds=\"LogPluginManager Verbose\"";
+			string args = $"-port={_settings.Port}";
 
 			var psi = new ProcessStartInfo
 			{
