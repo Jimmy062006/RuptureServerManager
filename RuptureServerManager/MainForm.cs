@@ -428,7 +428,7 @@ namespace RuptureServerManager
 				return;
 			}
 
-			string args = $"-port={_settings.Port} -newconsole -Log";
+			string args = $"-port={_settings.Port} -Log -LogCmds=\"LogPluginManager Verbose\"";
 
 			var psi = new ProcessStartInfo
 			{
@@ -447,7 +447,11 @@ namespace RuptureServerManager
 				_serverProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
 				_serverProcess.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
 				_serverProcess.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-				_serverProcess.Exited += (s, e) => { AppendConsole("Server process exited."); };
+				_serverProcess.Exited += (s, e) => { 
+					AppendConsole("Server process exited.");
+					_uiState = ServerUiState.Idle;
+					UpdateButtonStates();
+				};
 
 				_serverProcess.Start();
 				_serverProcess.BeginOutputReadLine();
