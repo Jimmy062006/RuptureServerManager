@@ -428,7 +428,7 @@ namespace RuptureServerManager
 				return;
 			}
 
-			string args = $"-port={_settings.Port}";
+			string args = $"-port={_settings.Port} -log -RCWebControlDisable -RCWebInterfaceDisable";
 
 			var psi = new ProcessStartInfo
 			{
