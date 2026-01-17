@@ -239,10 +239,16 @@ namespace RuptureServerManager
                 return;
             }
 
-            _uiState = ServerUiState.ServerRunning;
-            UpdateButtonStates();
-            ServerManager.Instance.StartServer();
-
+            if (ServerManager.Instance.StartServer())
+            {
+                _uiState = ServerUiState.ServerRunning;
+                UpdateButtonStates();
+            }
+            else
+            {
+                _uiState = ServerUiState.Idle;
+                UpdateButtonStates();
+            }
         }
 
 
@@ -281,6 +287,16 @@ namespace RuptureServerManager
             _isUpdating = true;
             _uiState = ServerUiState.Busy;
             UpdateButtonStates();
+
+
+            if ( ServerManager.Instance.IsRunning && MessageBox.Show("Are you sure you want to update the server now, doing so will shutdown your server.", "Confirm Update", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                AppendConsole("Update cancelled by user.");
+                _isUpdating = false;
+                _uiState = ServerUiState.Idle;
+                UpdateButtonStates();
+                return;
+            }
 
             // Stop any running server before updating
             StopServer();
