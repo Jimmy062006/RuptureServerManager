@@ -1,6 +1,4 @@
-using System.Text.Json.Serialization;
-
-namespace RuptureServerManagerSettingsNS
+namespace RuptureServerManager
 {
 	/// <summary>
 	/// Represents the dedicated server settings that can be configured through the UI.
@@ -8,6 +6,9 @@ namespace RuptureServerManagerSettingsNS
 	/// </summary>
 	public class RuptureServerManagerSettings
 	{
+		public static RuptureServerManagerSettings Instance => _instance ??= new();
+		private static RuptureServerManagerSettings? _instance;
+
 		/// <summary>
 		/// Name of the session. Limited to 20 characters. Defaults to "DefaultSession".
 		/// </summary>
