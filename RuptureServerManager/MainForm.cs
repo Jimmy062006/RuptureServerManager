@@ -239,16 +239,10 @@ namespace RuptureServerManager
                 return;
             }
 
-            if (ServerManager.Instance.StartServer())
-            {
-                _uiState = ServerUiState.ServerRunning;
-                UpdateButtonStates();
-            }
-            else
-            {
-                _uiState = ServerUiState.Idle;
-                UpdateButtonStates();
-            }
+            _uiState = ServerUiState.ServerRunning;
+            UpdateButtonStates();
+            ServerManager.Instance.StartServer();
+
         }
 
 
