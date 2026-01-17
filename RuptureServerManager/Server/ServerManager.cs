@@ -94,10 +94,11 @@ namespace RuptureServerManager.Server
         {
             if (IsRunning)
             {
+                _logger?.Invoke("Stopping server...");
                 try
                 {
-                    _serverProcess!.Kill();
-                    _serverProcess.WaitForExit();
+                    _serverProcess?.Kill();
+                    _serverProcess?.WaitForExit();
                     _logger?.Invoke("Server stopped.");
                 }
                 catch (Exception ex)
