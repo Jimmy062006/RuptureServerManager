@@ -25,37 +25,24 @@ namespace RuptureServerManager
 	public partial class MainForm : Form
 	{
 		private RuptureServerManagerSettings _settings = new();
-		private Process? _serverProcess;
+		private ServerManager? _serverManager;
+		private ConfigManager<RuptureServerManagerSettings>? _configManager;
 		private string _appFolder = string.Empty;
 		private string _serverPath = string.Empty;
 		private string _settingsFilePath = string.Empty;
 		private string _steamCmdDir = string.Empty;
 		private ServerUiState _uiState = ServerUiState.Idle;
 		private readonly int _steamAppId = 3809400;
-		private readonly string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs");
-		private readonly string logFileName = "server.txt";
 		private readonly string ServerSettingsFileName = "DSSettings.txt";
-
-		// Flag to indicate when an update operation is running. During update,
-		// buttons are disabled until completion and stop does not re-enable them.
 		private bool _isUpdating = false;
-
-		// Timer used for automatic update checks. When triggered, it will
-		// stop the server, run an update via SteamCMD, and optionally restart
-		// the server if it was running prior to the update.
 		private Timer? _autoUpdateTimer;
-
-		// Interval for auto-update checks. Adjust as needed.
 		private readonly TimeSpan _autoUpdateInterval = TimeSpan.FromMinutes(30);
 
-		/// <summary>
-		/// Constructor. Initializes UI components defined in the designer file.
-		/// </summary>
 		public MainForm()
 		{
 			InitializeComponent();
 		}
-
+	
 		/// <summary>
 		/// Loads persisted settings and ensures SteamCMD is available when the form loads.
 		/// Initializes the auto-update timer.
@@ -63,10 +50,11 @@ namespace RuptureServerManager
 		private async void MainForm_Load(object? sender, EventArgs e)
 		{
 			InitializePaths();
-			LoadSettingsFromFile();
+			_configManager = new ConfigManager<RuptureServerManagerSettings>(_settingsFilePath, AppendConsole);
+			_settings = _configManager.Load();
+			_serverManager = new ServerManager(_serverPath, AppendConsole);
 			ApplySettingsToUi();
 			await CheckAndDownloadSteamCMDAsync();
-			// Start periodic update checks
 			StartAutoUpdateTimer();
 		}
 
@@ -91,24 +79,8 @@ namespace RuptureServerManager
 		/// </summary>
 		private void LoadSettingsFromFile()
 		{
-			if (File.Exists(_settingsFilePath))
-			{
-				try
-				{
-					string json = File.ReadAllText(_settingsFilePath);
-					var loaded = JsonSerializer.Deserialize<RuptureServerManagerSettings>(json);
-					if (loaded != null)
-					{
-						_settings = loaded;
-					}
-				}
-				catch (Exception ex)
-				{
-					AppendConsole($"Error loading settings: {ex.Message}");
-					// Use defaults if loading fails
-					_settings = new RuptureServerManagerSettings();
-				}
-			}
+			if (_configManager != null)
+				_settings = _configManager.Load();
 		}
 
 		/// <summary>
@@ -134,14 +106,12 @@ namespace RuptureServerManager
 		private void SaveSettingsToFile()
 		{
 			UpdateSettingsFromUi();
+			if (_configManager != null)
+				_configManager.Save(_settings);
+			// Save server settings (excluding port)
 			try
 			{
 				JsonSerializerOptions options = new() { WriteIndented = true };
-				// Serialize full settings for the config file (include port)
-				var configJson = JsonSerializer.Serialize(_settings, options: options);
-				File.WriteAllText(_settingsFilePath, configJson);
-
-				// Create an anonymous object excluding the port for the serverfiles version
 				var serverSettings = new
 				{
 					_settings.SessionName,
@@ -152,13 +122,11 @@ namespace RuptureServerManager
 				};
 				var serverJson = JsonSerializer.Serialize(serverSettings, options: options);
 				File.WriteAllText(Path.Combine(_serverPath, ServerSettingsFileName), serverJson);
-
-				AppendConsole("Settings saved.");
 			}
 			catch (Exception ex)
 			{
-				AppendConsole($"Error saving settings: {ex.Message}");
-			}
+				AppendConsole($"Error saving server settings: {ex.Message}");
+		}
 		}
 
 		/// <summary>
@@ -211,28 +179,21 @@ namespace RuptureServerManager
 			{
 				case ServerUiState.Idle:
 					saveSettingsButton.Enabled = true;
-					//downloadSteamCmdButton.Enabled = true;
 					startButton.Enabled = true;
 					updateButton.Enabled = true;
 					stopButton.Enabled = false;
 					break;
-
 				case ServerUiState.ServerRunning:
 					saveSettingsButton.Enabled = true;
-					//downloadSteamCmdButton.Enabled = false;
 					startButton.Enabled = false;
 					updateButton.Enabled = true;
 					stopButton.Enabled = true;
 					break;
-
 				case ServerUiState.Busy:
 					saveSettingsButton.Enabled = false;
-					//downloadSteamCmdButton.Enabled = false;
 					startButton.Enabled = false;
 					updateButton.Enabled = false;
-
-					// IMPORTANT: Stop remains enabled if server is running
-					stopButton.Enabled = _serverProcess != null && !_serverProcess.HasExited;
+					stopButton.Enabled = _serverManager != null && _serverManager.IsRunning;
 					break;
 			}
 		}
@@ -268,7 +229,7 @@ namespace RuptureServerManager
 
 			_uiState = busy
 				? ServerUiState.Busy
-				: (_serverProcess != null && !_serverProcess.HasExited
+				: (_serverManager != null && _serverManager.IsRunning
 					? ServerUiState.ServerRunning
 					: ServerUiState.Idle);
 
@@ -400,15 +361,8 @@ namespace RuptureServerManager
 		/// </summary>
 		private void StartServer()
 		{
-			if (_serverProcess != null && !_serverProcess.HasExited)
-			{
-				AppendConsole("Server is already running.");
-				return;
-			}
-
 			DisableButtonsOnStart();
 			SaveSettingsToFile();
-
 			try
 			{
 				EnsureSaveGameExists();
@@ -420,52 +374,8 @@ namespace RuptureServerManager
 				UpdateButtonStates();
 				return;
 			}
-
-			string serverExe = Path.Combine(_serverPath, "StarRuptureServerEOS.exe");
-			if (!File.Exists(serverExe))
-			{
-				AppendConsole("Server executable not found.");
-				return;
-			}
-
-			string args = $"-port={_settings.Port} -log -RCWebControlDisable -RCWebInterfaceDisable";
-
-			var psi = new ProcessStartInfo
-			{
-				FileName = serverExe,
-				Arguments = args,
-				WorkingDirectory = Application.StartupPath,
-				UseShellExecute = false,
-				RedirectStandardInput = true,
-				RedirectStandardOutput = true,
-				RedirectStandardError = true,
-				CreateNoWindow = true
-			};
-
-			try
-			{
-				_serverProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
-				_serverProcess.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-				_serverProcess.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) AppendConsole(e.Data!); };
-				_serverProcess.Exited += (s, e) => { 
-					AppendConsole("Server process exited.");
-					_uiState = ServerUiState.Idle;
-					UpdateButtonStates();
-				};
-
-				_serverProcess.Start();
-				_serverProcess.BeginOutputReadLine();
-				_serverProcess.BeginErrorReadLine();
-
-				AppendConsole("Server started.");
-			}
-			catch (Exception ex)
-			{
-				AppendConsole($"Failed to start server: {ex.Message}");
-				_serverProcess = null;
-				_uiState = ServerUiState.Idle;
-				UpdateButtonStates();
-			}
+			if (_serverManager != null)
+				_serverManager.StartServer(_settings.Port);
 		}
 
 
@@ -474,25 +384,8 @@ namespace RuptureServerManager
 		/// </summary>
 		private void StopServer()
 		{
-			if (_serverProcess != null && !_serverProcess.HasExited)
-			{
-				try
-				{
-					_serverProcess.Kill();
-					_serverProcess.WaitForExit();
-					AppendConsole("Server stopped.");
-				}
-				catch (Exception ex)
-				{
-					AppendConsole($"Error stopping server: {ex.Message}");
-				}
-			}
-			else
-			{
-				AppendConsole("Server is not running.");
-			}
-
-			// Re-enable controls when the server stops unless an update is in progress
+			if (_serverManager != null)
+				_serverManager.StopServer();
 			if (!_isUpdating)
 			{
 				_uiState = ServerUiState.Idle;
@@ -506,54 +399,10 @@ namespace RuptureServerManager
 		/// </summary>
 		private async Task StopServerAsync()
 		{
-			if (_serverProcess == null || _serverProcess.HasExited)
-			{
-				AppendConsole("Server is not running.");
-				return;
-			}
-
-			AppendConsole("Requesting server shutdown...");
-
-			try
-			{
-				// Only attempt STDIN if still available
-				if (_serverProcess.StartInfo.RedirectStandardInput &&
-					!_serverProcess.StandardInput.BaseStream.CanWrite)
-				{
-					AppendConsole("STDIN already closed; waiting for server to exit...");
-				}
-				else
-				{
-					await _serverProcess.StandardInput.WriteLineAsync("quit");
-					await _serverProcess.StandardInput.FlushAsync();
-				}
-			}
-			catch (Exception ex)
-			{
-				// This is expected once Unreal begins shutdown
-				AppendConsole($"Shutdown command send failed (expected): {ex.Message}");
-			}
-
-			AppendConsole("Waiting for server to stop (saving may take time)...");
-
-			// Unreal servers can take a LONG time to save
-			bool exited = await Task.Run(() => _serverProcess.WaitForExit(10000));
-
-			if (exited)
-			{
-				AppendConsole("Server exited cleanly.");
-				_uiState = ServerUiState.Idle;
-				UpdateButtonStates();
-			}
-			else
-			{
-				AppendConsole("Server did not exit in time. Forcing shutdown...");
-				_serverProcess.Kill(true);
-				await _serverProcess.WaitForExitAsync();
-				AppendConsole("Server forcefully stopped.");
-				_uiState = ServerUiState.Idle;
-				UpdateButtonStates();
-			}
+			if (_serverManager != null)
+				await _serverManager.StopServerAsync();
+			_uiState = ServerUiState.Idle;
+			UpdateButtonStates();
 		}
 
 		/// <summary>
@@ -652,7 +501,7 @@ namespace RuptureServerManager
 
 			try
 			{
-				bool serverWasRunning = _serverProcess != null && !_serverProcess.HasExited;
+				bool serverWasRunning = _serverManager != null && _serverManager.IsRunning;
 
 				await InvokeOnUiAsync(() =>
 				{
@@ -875,34 +724,13 @@ namespace RuptureServerManager
 				return;
 			}
 			consoleTextBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
-
-			// Auto-scroll to bottom
 			consoleTextBox.SelectionStart = consoleTextBox.TextLength;
 			consoleTextBox.SelectionLength = 0;
 			consoleTextBox.ScrollToCaret();
-
-			// Also write to file
-			LogToFile(message);
+			Logger.Log(message);
 		}
 
-		private void LogToFile(string message)
-		{
-			try
-			{
-				if (!Directory.Exists(logFilePath))
-				{
-					Directory.CreateDirectory(logFilePath);
-				}
-
-				var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
-				File.AppendAllText(Path.Combine(logFilePath, logFileName), line + Environment.NewLine);
-			}
-			catch
-			{
-				// Intentionally swallow logging errors
-				// (we never want logging to crash the app)
-			}
-		}
+		// Method removed; replaced by Logger.Log(message)
 
 		#region Event Handlers
 
@@ -946,22 +774,8 @@ namespace RuptureServerManager
 
 		private async Task SendServerCommandAsync(string command)
 		{
-			if (_serverProcess == null || _serverProcess.HasExited)
-			{
-				AppendConsole("Server is not running.");
-				return;
-			}
-
-			try
-			{
-				AppendConsole($"> {command}");
-				await _serverProcess.StandardInput.WriteLineAsync(command);
-				await _serverProcess.StandardInput.FlushAsync();
-			}
-			catch (Exception ex)
-			{
-				AppendConsole($"Failed to send command: {ex.Message}");
-			}
+			if (_serverManager != null)
+				await _serverManager.SendServerCommandAsync(command);
 		}
 
 		/// <summary>
@@ -1040,7 +854,7 @@ namespace RuptureServerManager
 		{
 			try
 			{
-				if (encryptedValue == string.Empty)
+				if (string.IsNullOrEmpty(encryptedValue))
 					return;
 				Directory.CreateDirectory(_serverPath);
 				var fullPath = Path.Combine(_serverPath, fileName);
