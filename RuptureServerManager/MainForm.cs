@@ -62,6 +62,7 @@ namespace RuptureServerManager
 				await _updateChecker.DownloadAndApplyUpdateAsync(updateInfo);
 			}
 
+            this.Text = $"Rupture Server Manager v{Application.ProductVersion}";
 			ApplySettingsToUi();
             StartAutoUpdateTimer();
         }
