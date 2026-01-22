@@ -31,6 +31,7 @@ namespace RuptureServerManager
         {
             this.Shown += MainForm_Shown;
             InitializeComponent();
+			this.Text = $"Rupture Server Manager v{Application.ProductVersion}";
 			_updateChecker = new UpdateChecker();
 		}
 
@@ -62,7 +63,6 @@ namespace RuptureServerManager
 				await _updateChecker.DownloadAndApplyUpdateAsync(updateInfo);
 			}
 
-            this.Text = $"Rupture Server Manager v{Application.ProductVersion}";
 			ApplySettingsToUi();
             StartAutoUpdateTimer();
         }

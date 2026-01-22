@@ -99,19 +99,25 @@ namespace RuptureServerManager.Services
 
 		private void LaunchUpdater(string updateSourceDir)
 		{
-			string currentExe = Environment.ProcessPath!;
+			// Find the NEW exe inside the extracted update
+			string newExe = Directory
+				.GetFiles(updateSourceDir, "*.exe", SearchOption.TopDirectoryOnly)
+				.FirstOrDefault()
+				?? throw new InvalidOperationException("Updater EXE not found in update package.");
+
 			string appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 			int pid = Environment.ProcessId;
 
 			Process.Start(new ProcessStartInfo
 			{
-				FileName = currentExe,
+				FileName = newExe,   // 🔥 IMPORTANT: NEW EXE
 				Arguments = $"--update \"{appDir}\" \"{updateSourceDir}\" {pid}",
 				UseShellExecute = true
 			});
 
 			Environment.Exit(0);
 		}
+
 
 		private async Task<string?> GetZipAssetUrlAsync()
 		{

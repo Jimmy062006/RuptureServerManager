@@ -22,7 +22,6 @@ namespace RuptureServerManager
 				return;
 			}
 
-
 			Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -34,6 +33,8 @@ namespace RuptureServerManager
 			string targetDir = args[1];
 			string sourceDir = args[2];
 			int parentPid = int.Parse(args[3]);
+
+			string tempRoot = Path.GetDirectoryName(sourceDir)!;
 
 			try
 			{
@@ -51,13 +52,32 @@ namespace RuptureServerManager
 			}
 
 			string exe = Directory.GetFiles(targetDir, "*.exe").First();
-			Process.Start(new ProcessStartInfo { FileName = exe, UseShellExecute = true });
 
-			Task.Run(() =>
+			Process.Start(new ProcessStartInfo
 			{
-				Thread.Sleep(1500);
-				Directory.Delete(Path.GetDirectoryName(sourceDir)!, true);
+				FileName = exe,
+				UseShellExecute = true
+			});
+
+			ScheduleCleanup(tempRoot);
+		}
+
+		static void ScheduleCleanup(string tempRoot)
+		{
+			Task.Run(async () =>
+			{
+				await Task.Delay(2000); // allow restart + file locks to clear
+				try
+				{
+					if (Directory.Exists(tempRoot))
+						Directory.Delete(tempRoot, true);
+				}
+				catch
+				{
+					// Swallow — cleanup failure is non-fatal
+				}
 			});
 		}
+
 	}
 }
