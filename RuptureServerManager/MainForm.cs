@@ -1,4 +1,5 @@
 ﻿using RuptureServerManager.Server;
+using RuptureServerManager.Services;
 using RuptureServerManager.Util;
 using System;
 using System.IO;
@@ -24,12 +25,14 @@ namespace RuptureServerManager
         private bool _isUpdating = false;
         private Timer? _autoUpdateTimer;
         private readonly TimeSpan _autoUpdateInterval = TimeSpan.FromMinutes(30);
+		private readonly UpdateChecker _updateChecker;
 
-        public MainForm()
+		public MainForm()
         {
             this.Shown += MainForm_Shown;
             InitializeComponent();
-        }
+			_updateChecker = new UpdateChecker();
+		}
 
         private async void MainForm_Shown(object? sender, EventArgs e)
         {
@@ -52,7 +55,14 @@ namespace RuptureServerManager
             ServerManager.Instance.AssignLogger(AppendConsole);
             SteamCmdManager.Instance.AssignLogger(AppendConsole);
 
-            ApplySettingsToUi();
+			var updateInfo = await _updateChecker.CheckForUpdatesAsync();
+
+			if (updateInfo?.UpdateAvailable == true)
+			{
+				await _updateChecker.DownloadAndApplyUpdateAsync(updateInfo);
+			}
+
+			ApplySettingsToUi();
             StartAutoUpdateTimer();
         }
 
