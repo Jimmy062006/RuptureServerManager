@@ -14,7 +14,7 @@ namespace RuptureServerManager.Services
 	internal class UpdateChecker
 	{
 		private const string GITHUB_API_URL =
-			"https://api.github.com/repos/Jimmy062006/RuptureServerManager/releases";
+			"https://api.github.com/repos/Jimmy062006/RuptureServerManager/releases/latest";
 
 		private static readonly HttpClient _httpClient = new()
 		{
@@ -29,17 +29,10 @@ namespace RuptureServerManager.Services
 			try
 			{
 				var response = await _httpClient.GetStringAsync(GITHUB_API_URL);
-				using var doc = JsonDocument.Parse(response);
+				using var release = JsonDocument.Parse(response);
+				var root = release.RootElement;
 
-				var releases = doc.RootElement.EnumerateArray();
-
-				// pick newest NON-prerelease
-				var latestRelease = releases.FirstOrDefault(r => !r.GetProperty("prerelease").GetBoolean());
-				if (true)
-					latestRelease = releases.FirstOrDefault();
-
-				string latestVersion = latestRelease
-					.GetProperty("tag_name")
+				string latestVersion = root.GetProperty("tag_name")
 					.GetString()?
 					.TrimStart('v') ?? "0.0.0";
 
@@ -50,10 +43,9 @@ namespace RuptureServerManager.Services
 					CurrentVersion = currentVersion,
 					LatestVersion = latestVersion,
 					UpdateAvailable = IsNewerVersion(latestVersion, currentVersion),
-					DownloadUrl = latestRelease.GetProperty("html_url").GetString() ?? "",
-					ReleaseNotes = latestRelease.GetProperty("body").GetString() ?? ""
+					DownloadUrl = root.GetProperty("html_url").GetString() ?? "",
+					ReleaseNotes = root.GetProperty("body").GetString() ?? ""
 				};
-
 			}
 			catch
 			{
