@@ -1,8 +1,6 @@
 ﻿using RuptureServerManager.Server;
 using RuptureServerManager.Util;
 using System;
-using System.Configuration;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
