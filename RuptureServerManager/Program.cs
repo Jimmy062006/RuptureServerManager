@@ -30,10 +30,6 @@ namespace RuptureServerManager
 
 		static void RunUpdater(string[] args)
 		{
-			while (!Debugger.IsAttached)
-			{
-				Thread.Sleep(100);
-			}
 			string targetDir = args[1];
 			string sourceDir = args[2];
 			int parentPid = int.Parse(args[3]);

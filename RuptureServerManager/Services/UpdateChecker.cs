@@ -55,10 +55,15 @@ namespace RuptureServerManager.Services
 
 		public async Task<bool> DownloadAndApplyUpdateAsync(UpdateInfo info)
 		{
-			if (!info.UpdateAvailable)
-				return false;
-
 			string tempRoot = Path.Combine(Path.GetTempPath(), "RuptureServerManagerUpdate");
+
+			if (!info.UpdateAvailable)
+			{
+				if (Directory.Exists(tempRoot))
+					Directory.Delete(tempRoot, true);
+				return false;
+			}
+
 			string zipPath = Path.Combine(tempRoot, "update.zip");
 			string extractPath = Path.Combine(tempRoot, "extract");
 
